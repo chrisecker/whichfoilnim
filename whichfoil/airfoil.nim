@@ -12,9 +12,13 @@ proc `=~` *(x, y: float): bool =
 type
   ParseError* = object of Exception
 
-  point = object
-    x: float
-    y: float
+  point* = object
+    x*: float
+    y*: float
+
+  airfoil* = object
+    doc*: string
+    points*: seq[point]
 
     
 func parse_coord(l: string): (float, float) =
@@ -37,12 +41,8 @@ func is_coord(l: string): bool =
   return true
 
 
-type
-  airfoil = object
-    doc: string
-    points: seq[point]
   
-proc load_airfoil(f: File): airfoil =
+proc load_airfoil*(f: File): airfoil =
   var doc: string
   var points: seq[point]
 
