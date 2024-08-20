@@ -2,6 +2,9 @@ import std/strutils
 import std/strformat
 import std/enumerate
 import std/algorithm
+import std/math
+import pixie
+
 
 
 const eps = 1.0e-7 ## Epsilon used for float comparisons.
@@ -20,6 +23,17 @@ type
     doc*: string
     points*: seq[point]
 
+
+func `-`*(p1, p2: point): point =
+  point(x:p1.x-p2.x, y:p1.y-p2.y)
+
+func length*(p: point): float =
+  sqrt(p.x^2+p.y^2)
+
+converter toVec2*(p: point): GVec2[float32] =
+  let r = vec2(p.x, p.y)
+  return r
+  
     
 func parse_coord(l: string): (float, float) =
   let s = l.strip().splitWhitespace()
