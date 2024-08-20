@@ -4,44 +4,44 @@ import streams
 
     
 type
-  View* = ref object of RootObj
-  Model* = ref object of RootObj
+  ViewBase* = ref object of RootObj
+  Document* = ref object of RootObj
     pp1, pp2: point
-    views*: seq[View]
+    views*: seq[ViewBase]
 
-proc save*(m: Model, path: string) =
+proc save*(m: Document, path: string) =
   # TODO:
   # "views" nicht schreiben
   # "p1" statt "pp1"  
   writeFile(path, pretty(%m))
 
-proc load*(path: string): Model =
+proc load*(path: string): Document =
   let s = readFile(path)
   let jsonObject = parseJson(s)
-  to(jsonObject, Model)
+  to(jsonObject, Document)
   
-method p1_changed*(v: View, m: Model, old: point, value: point) =
+method p1_changed*(v: ViewBase, m: Document, old: point, value: point) =
   echo "p1 changed", old, "->", value
 
-method p2_changed*(v: View, m: Model, old: point, value: point) =
+method p2_changed*(v: ViewBase, m: Document, old: point, value: point) =
   echo "p2 changed", old, "->", value
 
-proc `p1=`*(m: var Model, value: point) {.inline.} =
+proc `p1=`*(m: var Document, value: point) {.inline.} =
   let old = m.pp1
   m.pp1 = value
   for v in m.views:
     v.p1_changed(m, old, value)
 
-proc p1*(m: Model): point {.inline.} =
+proc p1*(m: Document): point {.inline.} =
   m.pp1
   
-proc `p2=`*(m: var Model, value: point) {.inline.} =
+proc `p2=`*(m: var Document, value: point) {.inline.} =
   let old = m.pp2
   m.pp2 = value
   for v in m.views:
     v.p2_changed(m, old, value)
 
-proc p2*(m: Model): point {.inline.} =
+proc p2*(m: Document): point {.inline.} =
   m.pp1
     
 when isMainModule:
@@ -49,13 +49,13 @@ when isMainModule:
   
   suite "testing model.nim":
     test "set p1":
-      var m = Model()
-      let v = View()
+      var m = Document()
+      let v = ViewBase()
       m.views &= v
       m.p1 = point(x:1.0, y:1.1)
       m.p2 = point(x:1.0, y:1.1)
     test "save":
-      var m = Model()
+      var m = Document()
       m.p1 = point(x:1.0, y:1.1)
       m.p2 = point(x:2.0, y:2.1)
       m.save("tmp.json")
