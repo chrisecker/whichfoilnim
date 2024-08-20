@@ -1,7 +1,7 @@
 import nigui
 import pixie
 import airfoil
-import model
+import document
 import std/strformat
 import std/math
 
@@ -9,7 +9,9 @@ import std/math
 
 let bgimage = readImage("Pirat.png")
 let foil = load_airfoil(open("foils/ag03-il.dat"))
-var mymodel = Model()
+var doc = Document()
+doc.p1 = point(x:0.0, y:0.0)
+doc.p2 = point(x:10.0, y:10.0)
 
 
 proc tonigui(image: pixie.Image): nigui.Image =
@@ -36,13 +38,11 @@ func profile2image(p1, p2: point): Mat3 =
 
   
 # Definition of a custom widget
-type Canvas* = ref object of ControlImpl
-  counter: int
+type DocView* = ref object of ControlImpl
   current: int
-
   
-method handleDrawEvent(control: Canvas, event: DrawEvent) =
-  let canvas = control.canvas
+method handleDrawEvent(self: DocView, event: DrawEvent) =
+  let canvas = self.canvas
   let w = canvas.width
   let h = canvas.height
 
@@ -53,18 +53,19 @@ method handleDrawEvent(control: Canvas, event: DrawEvent) =
   let ctx = newContext(image)
 
   # handles
-  let h1 = mymodel.p1 #point(x:0.0, y:100.0)
-  let h2 = mymodel.p2 #point(x:float(w), y:float(h))  
+  let h1 = doc.p1
+  let h2 = doc.p2
   let m = profile2image(h1, h2)
 
   ctx.strokeStyle = rgba(255, 0, 0, 255)
   ctx.fillStyle = rgba(255, 0, 0, 255)
-  
-  if control.current == 1:
+
+  echo "current=", self.current, " p1=", doc.p1, " p2=", doc.p2
+  if self.current == 1:
     ctx.strokeCircle(circle(h1, 10.0))    
   else:
     ctx.fillCircle(circle(h1, 10.0))    
-  if control.current == 2:
+  if self.current == 2:
     ctx.strokeCircle(circle(h2, 10.0))
   else:
     ctx.fillCircle(circle(h2, 10.0))
@@ -81,20 +82,20 @@ method handleDrawEvent(control: Canvas, event: DrawEvent) =
 proc inHandle(hpos, p: point): bool =
   abs(hpos.x-p.x)<10 and abs(hpos.y-p.y)<10
   
-method handleMouseButtonDownEvent(control: Canvas, event: MouseEvent) =
+method handleMouseButtonDownEvent(self: DocView, event: MouseEvent) =
   #echo fmt"Mouse down {event.x} {event.y}" #, event.button
   let p = point(x: float(event.x), y: float(event.y))
-  if inHandle(mymodel.p1, p):
-    control.current = 1
+  if inHandle(doc.p1, p):
+    self.current = 1
     echo "in 1"
-  elif inHandle(mymodel.p2, p):
-    control.current = 2
+  elif inHandle(doc.p2, p):
+    self.current = 2
     echo "in 2"
-  control.forceRedraw
+  self.forceRedraw
 
-method handleMouseButtonUpEvent(control: Canvas, event: MouseEvent) =
-  control.current = 0
-  control.forceRedraw
+method handleMouseButtonUpEvent(self: DocView, event: MouseEvent) =
+  self.current = 0
+  self.forceRedraw
   echo fmt"Mouse up {event.x} {event.y}" #, event.button
 
 # klappt nicht
@@ -105,8 +106,8 @@ method handleMouseButtonUpEvent(control: Canvas, event: MouseEvent) =
   
 
 # Constructor (optional)
-proc newCanvas*(): Canvas =
-  result = new Canvas
+proc newDocView*(): DocView =
+  result = new DocView
   result.init()
   result.width = 500.scaleToDpi
   result.height = 500.scaleToDpi
@@ -118,7 +119,7 @@ proc newCanvas*(): Canvas =
   #result.onMouseMove = proc(event: MouseEvent) =
   #  echo fmt"onMouseMove {event.x}, {event.y}" #, {event.button}"
     #if result.current>0:
-    #  mymodel.p1 = point(x:float(event.x), y:float(event.y))
+    #  doc.p1 = point(x:float(event.x), y:float(event.y))
     #  result.forceRedraw
   
 
@@ -130,18 +131,21 @@ proc newCanvas*(): Canvas =
 app.init()
 
 var window = newWindow()
-var c = newCanvas()
+var c = newDocView()
 window.add(c)
 
 # Wir können leider keine Methoden verenden. Das ist in NiGui noch
 # nicht implementiert.
 c.onMouseMove = proc(event: MouseEvent) =
-  echo fmt"onMouseMove {event.x}, {event.y}" #, {event.button}"
+  #echo fmt"onMouseMove {event.x}, {event.y}" #, {event.button}"
+  let p = point(x:float(event.x), y:float(event.y))
   if c.current==1:
-    mymodel.p1 = point(x:float(event.x), y:float(event.y))
+    doc.p1 = p
+    echo "setting p1"
     c.forceRedraw
   elif c.current==2:
-    mymodel.p2 = point(x:float(event.x), y:float(event.y))
+    doc.p2 = p
+    echo "setting p2"
     c.forceRedraw
 
 

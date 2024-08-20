@@ -6,7 +6,7 @@ import streams
 type
   ViewBase* = ref object of RootObj
   Document* = ref object of RootObj
-    pp1*, pp2*: point
+    pp1, pp2: point
     views*: seq[ViewBase]
 
 proc save*(m: Document, path: string) =
@@ -28,7 +28,6 @@ method p2_changed*(v: ViewBase, m: Document, old: point, value: point) =
 
 proc `p1=`*(m: var Document, value: point) {.inline.} =
   let old = m.pp1
-  echo "p1 assigned"
   m.pp1 = value
   for v in m.views:
     v.p1_changed(m, old, value)
@@ -38,7 +37,6 @@ proc p1*(m: Document): point {.inline.} =
   
 proc `p2=`*(m: var Document, value: point) {.inline.} =
   let old = m.pp2
-  echo "p2 assigned"
   m.pp2 = value
   for v in m.views:
     v.p2_changed(m, old, value)
