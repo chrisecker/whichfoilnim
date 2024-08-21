@@ -1,30 +1,35 @@
 import airfoil
 import json
-import streams
+import nigui
 
     
 type
-  ViewBase* = ref object of RootObj
+  ViewBase* = ref object of ControlImpl
+
+
+type
   Document* = ref object of RootObj
     pp1, pp2: point
     views*: seq[ViewBase]
 
+method p1_changed*(v: ViewBase, m: Document, old: point, value: point) {.base.} =
+  discard
+
+method p2_changed*(v: ViewBase, m: Document, old: point, value: point) {.base.} =
+  discard
+    
 proc save*(m: Document, path: string) =
-  # TODO:
-  # "views" nicht schreiben
-  # "p1" statt "pp1"  
-  writeFile(path, pretty(%m))
+  let j = %[("p1", %m.pp1), ("p2", %m.pp2)]
+  writeFile(path, pretty(%j))
 
 proc load*(path: string): Document =
   let s = readFile(path)
-  let jsonObject = parseJson(s)
-  to(jsonObject, Document)
+  let j = parseJson(s)
+  Document(
+    pp1:to(j["p1"], point),
+    pp2:to(j["p2"], point))
+  #to(jsonObject, Document)
   
-method p1_changed*(v: ViewBase, m: Document, old: point, value: point) =
-  echo "p1 changed", old, "->", value
-
-method p2_changed*(v: ViewBase, m: Document, old: point, value: point) =
-  echo "p2 changed", old, "->", value
 
 proc `p1=`*(m: var Document, value: point) {.inline.} =
   let old = m.pp1

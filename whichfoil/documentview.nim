@@ -13,8 +13,8 @@ var doc = Document()
 doc.p1 = point(x:0.0, y:0.0)
 doc.p2 = point(x:10.0, y:10.0)
 
-
 proc tonigui(image: pixie.Image): nigui.Image =
+  # Helper
   var niGuiImage = nigui.newImage()
   niGuiImage.resize(image.width, image.height)
   var niGuiImageData = niGuiImage.beginPixelDataAccess()    
@@ -38,7 +38,7 @@ func profile2image(p1, p2: point): Mat3 =
 
   
 # Definition of a custom widget
-type DocView* = ref object of ControlImpl
+type DocView* = ref object of ViewBase
   current: int
   
 method handleDrawEvent(self: DocView, event: DrawEvent) =
@@ -60,7 +60,6 @@ method handleDrawEvent(self: DocView, event: DrawEvent) =
   ctx.strokeStyle = rgba(255, 0, 0, 255)
   ctx.fillStyle = rgba(255, 0, 0, 255)
 
-  echo "current=", self.current, " p1=", doc.p1, " p2=", doc.p2
   if self.current == 1:
     ctx.strokeCircle(circle(h1, 10.0))    
   else:
@@ -83,20 +82,22 @@ proc inHandle(hpos, p: point): bool =
   abs(hpos.x-p.x)<10 and abs(hpos.y-p.y)<10
   
 method handleMouseButtonDownEvent(self: DocView, event: MouseEvent) =
-  #echo fmt"Mouse down {event.x} {event.y}" #, event.button
   let p = point(x: float(event.x), y: float(event.y))
   if inHandle(doc.p1, p):
-    self.current = 1
-    echo "in 1"
+    self.current = 1    
   elif inHandle(doc.p2, p):
     self.current = 2
-    echo "in 2"
   self.forceRedraw
 
 method handleMouseButtonUpEvent(self: DocView, event: MouseEvent) =
   self.current = 0
   self.forceRedraw
-  echo fmt"Mouse up {event.x} {event.y}" #, event.button
+
+method p1_changed(self: DocView, m: Document, old: point, value: point) =
+  self.forceRedraw
+  
+method p2_changed(self: DocView, m: Document, old: point, value: point) =
+  self.forceRedraw
 
 # klappt nicht
 #
@@ -133,20 +134,16 @@ app.init()
 var window = newWindow()
 var c = newDocView()
 window.add(c)
+doc.views.add(c)
 
 # Wir können leider keine Methoden verenden. Das ist in NiGui noch
 # nicht implementiert.
 c.onMouseMove = proc(event: MouseEvent) =
-  #echo fmt"onMouseMove {event.x}, {event.y}" #, {event.button}"
   let p = point(x:float(event.x), y:float(event.y))
   if c.current==1:
     doc.p1 = p
-    echo "setting p1"
-    c.forceRedraw
   elif c.current==2:
     doc.p2 = p
-    echo "setting p2"
-    c.forceRedraw
 
 
 window.show()

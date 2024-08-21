@@ -100,45 +100,8 @@ proc load_airfoil*(f: File): airfoil =
     # go back to the trailing edge.
 
     discard # nothing to do
-    
-      
+          
   return airfoil(doc: doc, points: points)
-#         l = next()
-    
-#     for l in f:
-#         if not l.strip():
-#             continue
-#         if not is_coord(l):
-#             continue # raise ParseError("Expected coordinate tuple: "+repr(l))
-#         x, y = [float(s) for s in l.split()]
-#         values.append((x, y))
-
-#     px, py = values[0]
-#     if px>1.5 or py > 1.5: # assume Letnicer's format
-    
-#         # Lednicer's format lists points on the upper surface (from leading
-#         # edge to trailing edge), then points on the lower surface (from
-#         # leading edge to trailing edge). 
-
-#         nupper, nlower = int(px), int(py)
-#         upper = values[1:nupper+1]
-#         lower = values[nupper+1:]
-#         values = upper+lower
-#         upper.reverse()
-#         values = lower+upper
-#     else:
-#         # assume Selig's format
-
-#         # Selig's format starts from the trailing edge of the airfoil,
-#         # goes over the upper surface, then over the lower surface, to
-#         # go back to the trailing edge.
-
-#         pass # nothing to do
-
-#     # remove values outside -0.001 ... 1.001
-#     coordinates = [p for p in values if p[0]>-0.001 and p[0]<1.001]
-#     xv, yv = zip(*coordinates)
-#     return '\n'.join(comments), (xv, yv)
 
 
 func interpolate(x, x1, x2, y1, y2 :float): float =
@@ -146,7 +109,7 @@ func interpolate(x, x1, x2, y1, y2 :float): float =
     raise newException(ValueError, "{x} not in interval {x1} .. {x2}. ")
   return y1+(y2-y1)/(x2-x1)*(x-x1) 
 
-func interpolate_airfoil(t: float, foil: airfoil): (float, float) =
+func interpolate_airfoil*(t: float, foil: airfoil): (float, float) =
   # Determines the intersection of the profile coordinates with x=t
   #
   # Returns a tuple (upper, lower).
@@ -173,8 +136,6 @@ func interpolate_airfoil(t: float, foil: airfoil): (float, float) =
   
 when isMainModule:
   import unittest
-
-
 
   suite "testing airfoil.nim":
     test "parse_coord":
