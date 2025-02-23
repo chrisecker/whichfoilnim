@@ -75,23 +75,29 @@ type
   Slider* = ref object of SimpleHandle
     direction*: Vec2
 
-method draw*(slider: Slider, ctx: Context, trafo: Mat3) =
+proc compute_path(slider: Slider, trafo: Mat3): Path =
   let ex = slider.direction.normalize()
   let ey = vec2(-ex.y, ex.x)
   const r = 8.0
   let p0 = trafo*slider.position
   let p1 = p0+(ex+ey)*r
-  let p2 = p0+(ex-ey)*r
-  
-  ctx.strokeStyle = rgba(0, 0, 0, 255)
-  ctx.strokeSegment(segment(p0, p1))
-  ctx.strokeSegment(segment(p0, p2))
+  let p2 = p0+(ex-ey)*r  
+  result = newPath()
+  result.moveTo(p0)
+  result.lineTo(p1)
+  result.lineTo(p2)
+  result.closePath()
 
-method draw_dragged*(handle: Slider, ctx: Context, trafo: Mat3) =
-  draw(handle, ctx, trafo)
-  
-method hit*(handle: Slider, position: Vec2, trafo: Mat3): bool =
-  let p1 = trafo*handle.position
+method draw*(slider: Slider, ctx: Context, trafo: Mat3) =  
+  ctx.fillStyle = rgba(0, 0, 0, 255)
+  ctx.fill(compute_path(slider, trafo))
+
+method draw_dragged*(slider: Slider, ctx: Context, trafo: Mat3) =
+  ctx.strokeStyle = rgba(255, 0, 0, 255)
+  ctx.stroke(compute_path(slider, trafo))
+    
+method hit*(slider: Slider, position: Vec2, trafo: Mat3): bool =
+  let p1 = trafo*slider.position
   let p2 = position
   const r = 8.0
   return abs(p1.x-p2.x)<r and abs(p1.y-p2.y)<r
