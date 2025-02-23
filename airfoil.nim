@@ -13,7 +13,7 @@ proc `=~` *(x, y: float): bool =
 type
   ParseError* = object of CatchableError
 
-  airfoil* = object
+  Airfoil* = object
     doc*: string
     points*: seq[Vec2]
 
@@ -38,7 +38,7 @@ func is_coord(l: string): bool =
 
 
   
-proc load_airfoil*(f: File): airfoil =
+proc load_airfoil*(path: string): Airfoil =
   var doc: string
   var points: seq[Vec2]
 
@@ -46,6 +46,7 @@ proc load_airfoil*(f: File): airfoil =
   
   var l: string
   var i = 0
+  var f = open(path)
   while readline(f, l):
     i += 1
     if l.strip() == "":
@@ -54,7 +55,7 @@ proc load_airfoil*(f: File): airfoil =
       let (x, y) = parse_coord(l)
       points.add(vec2(x, y))
     else:
-      if len(points)>0:
+      if false and len(points)>0: # Problem: Kommentare am Ende, daher deaktiviert
         raise newException(
           ParseError, fmt"Error in line {i}: expected a point")
       if len(doc)>0:
@@ -84,8 +85,8 @@ proc load_airfoil*(f: File): airfoil =
 
     discard # nothing to do
     
-      
-  return airfoil(doc: doc, points: points)
+  close(f)      
+  return Airfoil(doc: doc, points: points)
 #         l = next()
     
 #     for l in f:
@@ -134,7 +135,7 @@ func interpolate[T](x, x1, x2 : float, y1, y2: T): T =
   let f = (x-x1)/(x2-x1)
   return y1+(y2-y1)*f  
 
-func interpolate_airfoil*(t: float, foil: airfoil): (float, float) =
+func interpolate_airfoil*(t: float, foil: Airfoil): (float, float) =
   # Determines the intersection of the profile coordinates with x=t
   #
   # Returns a tuple (upper, lower).
@@ -163,14 +164,14 @@ proc scalarprd*(p1, p2: Vec2): float =
 func deg(alpha: float): string =
   &"{round(alpha*180/PI, 2)}°"
   
-proc find_tangent*(foil: airfoil, alpha: float): Vec2 =
+proc find_tangent*(foil: Airfoil, alpha: float): Vec2 =
   # Gibt den Punkt auf der Profiloberseite zwischen Vorderkante und
   # max Dicke, an dem eine angelegte Tangente den Winkel alpha zu dem
   # Endpunkt B hat.
 
-  # Hinweis: Nasenleiste und Selig's format starts from the trailing
-  # edge of the airfoil, goes over the upper surface, then over the
-  # lower surface, to go back to the trailing edge.
+  # Hinweis: Selig's format starts from the trailing edge of the
+  # airfoil, goes over the upper surface, then over the lower surface,
+  # to go back to the trailing edge.
 
   let q = foil.points[0] # trailing edge, upper
   var ap = q
@@ -201,6 +202,7 @@ proc find_tangent*(foil: airfoil, alpha: float): Vec2 =
     ap = p
     ah = h
     abeta = beta
+  #echo "Nicht gefunden"
   return q # XXX Besser: Exception?
 
   
@@ -218,20 +220,25 @@ when isMainModule:
       check(is_coord("1.2 3.4") == true)
       check(is_coord("1.2 3.4 ") == true)
       check(is_coord("1.2 ") == false)
-    test "load_airfoil":
-      let f = load_airfoil(open("ag03-il.dat"))
+    test "ag03":
+      let f = load_airfoil("foils/ag03-il.dat")
       check(len(f.points) == 180)
       let (y1, y2) = interpolate_airfoil(0.1, f)
       check(y1 =~ -0.0131572867921)
       check(y2 =~ 0.0406201664946)
-    test "interpolating vectors":
+    test "ag24":
+      let f = load_airfoil("foils/ag24-il.dat")
+    test "s2060":
+      let f = load_airfoil("foils/s2060-il.dat")
+    test "interpolate":
       let y1 = vec2(0, 0)
       let y2 = vec2(1, 1)
       check(interpolate(2.5, 2, 3, y1, y2) == vec2(0.5, 0.5))
       check(interpolate(2.0, 2, 3, y1, y2) == vec2(0.0, 0.0))
       check(interpolate(3.0, 2, 3, y1, y2) == vec2(1.0, 1.0))      
     test "find_tangent":
-      let f = load_airfoil(open("clarky-il.dat"))
-      let p = find_tangent(f, cos(45/180.0*PI))
+      let f = load_airfoil("foils/clarky-il.dat")
+      let p = find_tangent(f, 45/180.0*PI)
+      echo $p
       check(0.007 < p.x and p.x < 0.009)
       check(0.013 < p.y and p.y < 0.014)
