@@ -190,15 +190,14 @@ method hit*(figure: FoilFigure, position: Vec2, trafo: Mat3): bool =
 
 
 method match_sliders*(figure: FoilFigure, airfoil: Airfoil): (seq[float], seq[float]) =
-  # Sucht die Werte (upper, lower), die airfoil am besten beschreiben
+  # Sucht die Werte (upper, lower), die airfoil bei gegebenem t am besten beschreiben
   let pt = find_tangent(airfoil, figure.alpha)
   let pb = figure.airfoil.points[0] # trailing edge, upper
   var upper_values = @[0.01, 0.015, 0.01] # XXX
   var lower_values = @[0.01, 0.012, 0.01]
-  #let m = compute_trafo(figure, airfoil)
   for i, pos in figure.positions:
-    let l = (pb-pt)*pos
-    let (lower, upper) = interpolate_airfoil(l.x, airfoil)
+    let x = (pt+(pb-pt)*pos).x
+    let (lower, upper) = interpolate_airfoil(x, airfoil)
     lower_values[i] = lower
     upper_values[i] = upper    
   return (upper_values, lower_values)
@@ -209,9 +208,11 @@ method badness*(figure: FoilFigure, airfoil: Airfoil): float =
   var dist = 0.0
   for i, upper in upper_values:
     let lower = lower_values[i]
+    let c1 = 0.5*(upper+lower)
+    let c2 = 0.5*(figure.upper_values[i]+figure.lower_values[i])    
     let h1 = upper-lower
     let h2 = figure.upper_values[i]-figure.lower_values[i]
-    dist += (h1-h2)^2
+    dist += (h1-h2)^2+(c1-c2)^2
   return dist
 
 
