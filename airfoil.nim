@@ -16,6 +16,7 @@ type
   Airfoil* = object
     doc*: string
     points*: seq[Vec2]
+    nupper*: int
 
 func parse_coord(l: string): (float, float) =
   let s = l.strip().splitWhitespace()
@@ -41,6 +42,7 @@ func is_coord(l: string): bool =
 proc load_airfoil*(path: string): Airfoil =
   var doc: string
   var points: seq[Vec2]
+  var nupper: int
 
   # n Zeilen Kommentare. Ab der ersten Koordinate kein Kommentar mehr
   
@@ -70,7 +72,7 @@ proc load_airfoil*(path: string): Airfoil =
     # edge to trailing edge), then points on the lower surface (from
     # leading edge to trailing edge). 
 
-    let nupper = int(p0.x+eps)
+    nupper = int(p0.x+eps)
     #let nlower = int(p0.y+eps) ## could be used for assertion
     let upper = points[1..nupper].reversed()
     #echo upper.reversed()
@@ -83,49 +85,25 @@ proc load_airfoil*(path: string): Airfoil =
     # goes over the upper surface, then over the lower surface, to
     # go back to the trailing edge.
 
-    discard # nothing to do
-    
+    nupper = 0
+    var ap = points[0]
+    for p in points[1..^1]:
+      if p.x > ap.x:
+        break
+      nupper += 1
+      ap = p    
   close(f)      
-  return Airfoil(doc: doc, points: points)
-#         l = next()
-    
-#     for l in f:
-#         if not l.strip():
-#             continue
-#         if not is_coord(l):
-#             continue # raise ParseError("Expected coordinate tuple: "+repr(l))
-#         x, y = [float(s) for s in l.split()]
-#         values.append((x, y))
-
-#     px, py = values[0]
-#     if px>1.5 or py > 1.5: # assume Letnicer's format
-    
-#         # Lednicer's format lists points on the upper surface (from leading
-#         # edge to trailing edge), then points on the lower surface (from
-#         # leading edge to trailing edge). 
-
-#         nupper, nlower = int(px), int(py)
-#         upper = values[1:nupper+1]
-#         lower = values[nupper+1:]
-#         values = upper+lower
-#         upper.reverse()
-#         values = lower+upper
-#     else:
-#         # assume Selig's format
-
-#         # Selig's format starts from the trailing edge of the airfoil,
-#         # goes over the upper surface, then over the lower surface, to
-#         # go back to the trailing edge.
-
-#         pass # nothing to do
-
-#     # remove values outside -0.001 ... 1.001
-#     coordinates = [p for p in values if p[0]>-0.001 and p[0]<1.001]
-#     xv, yv = zip(*coordinates)
-#     return '\n'.join(comments), (xv, yv)
+  return Airfoil(doc: doc, points: points, nupper: nupper)
 
 
+proc upper_points*(foil: Airfoil): seq[Vec2] =
+  foil.points[0..foil.nupper-1]
 
+  
+proc lower_points*(foil: Airfoil): seq[Vec2] =
+  foil.points[foil.nupper..^1]
+
+  
 func interpolate[T](x, x1, x2 : float, y1, y2: T): T =
   if not (x1 <= x and x <= x2):
     #echo "x=", x, "[", x1, "; ", x2, "]"
@@ -220,6 +198,16 @@ when isMainModule:
       check(is_coord("1.2 3.4") == true)
       check(is_coord("1.2 3.4 ") == true)
       check(is_coord("1.2 ") == false)
+    test "selig":
+      let f = load_airfoil("foils/ag03-il.dat")
+      check(len(f.points) == len(f.upper_points)+len(f.lower_points))
+      check(f.nupper == 92)
+      check(len(f.points) == 180)
+    test "lednicer":
+      let f = load_airfoil("foils/fx61168-il.dat")
+      check(len(f.points) == len(f.upper_points)+len(f.lower_points))
+      check(f.nupper == 49)
+      check(len(f.points) == 98)
     test "ag03":
       let f = load_airfoil("foils/ag03-il.dat")
       check(len(f.points) == 180)
