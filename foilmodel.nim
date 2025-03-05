@@ -22,9 +22,9 @@ type FoilFigure* = ref object of Figure
 proc newFoilFigure*(path: string): FoilFigure =
   result = new FoilFigure
   result.airfoil = load_airfoil(path)
-  result.positions = @[0.3, 0.5, 0.7]
-  result.upper_values = @[0.01, 0.01, 0.01]
-  result.lower_values = @[0.01, 0.01, 0.01]
+  result.positions = @[0.1, 0.3, 0.5, 0.7]
+  result.upper_values = @[0.01, 0.01, 0.01, 0.01]
+  result.lower_values = @[-0.01, -0.01, -0.01, -0.01]
 
 
 proc pt*(figure: FoilFigure): Vec2 = # umbenennen in compute_pt?
@@ -159,13 +159,13 @@ method move_handle*(figure: FoilFigure, idx: int, pos: Vec2, trafo: Mat3) =
   else:
     let q = compute_m2c(figure).inverse*p
     
-    if idx <= 5:
+    if idx <= 2+len(figure.positions):
       # upper sliders
       let i = idx-3    
       figure.upper_values[i] = q.y
     else:
       # lower sliders
-      let i = idx-6
+      let i = idx-3-len(figure.positions)
       figure.lower_values[i] = q.y
       
       
