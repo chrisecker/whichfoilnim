@@ -96,45 +96,67 @@ proc load_airfoil*(path: string): Airfoil =
   return Airfoil(doc: doc, points: points, nupper: nupper)
 
 
-proc upper_points*(foil: Airfoil): seq[Vec2] =
+func upper_points*(foil: Airfoil): seq[Vec2] =
   foil.points[0..foil.nupper-1]
 
   
-proc lower_points*(foil: Airfoil): seq[Vec2] =
+func lower_points*(foil: Airfoil): seq[Vec2] =
   foil.points[foil.nupper..^1]
 
+func transformed*(foil: Airfoil, m: Mat3): Airfoil =
+  var points: seq[Vec2]
+  for p in foil.points:
+    points.add(m*p)    
+  return Airfoil(doc: foil.doc, points: points, nupper: foil.nupper)
+
+func rotated*(foil: Airfoil, alpha: float): Airfoil =
+  let m = rotate(float32(alpha))
+  return foil.transformed(m)
   
 func interpolate[T](x, x1, x2 : float, y1, y2: T): T =
-  if not (x1 <= x and x <= x2):
-    #echo "x=", x, "[", x1, "; ", x2, "]"
-    raise newException(ValueError, fmt"{x} not in interval {x1} .. {x2}. ")
+  let s1 = min(x1, x2)
+  let s2 = max(x1, x2)
+  if not (s1 <= x and x <= s2):
+    raise newException(ValueError, fmt"{x} not in interval {s1} .. {s2}. ")
   if x1 == x2:
     return y1
   let f = (x-x1)/(x2-x1)
   return y1+(y2-y1)*f  
 
-func interpolate_airfoil*(t: float, foil: Airfoil): (float, float) =
+proc interpolate_airfoil*(t: float, foil: Airfoil): (float, float) =
   # Determines the intersection of the profile coordinates with x=t
   #
   # Returns a tuple (upper, lower).
   
-  if t<0 or t>1:
-     raise newException(ValueError, "{t} not in interval 0 .. 1. ")
   var upper = -1.0
   var lower = -1.0
-  var ap = vec2(float(-1.0), float(-1.0))
-  for i, p in enumerate(foil.points):
-    let x = p.x
-    let ax = ap.x
-    if ax >= 0:
-      if (ax<t and t<=x): 
-        lower = interpolate(t, ax, x, ap.y, p.y)
-      elif (x<t and t<=ax): 
-        upper = interpolate(t, x, ax, p.y, ap.y)
+
+  # Upper coordinates, x is decreasing
+  var points = foil.upper_points
+  var ap = points[0]
+  if t>ap.x or t<points[^1].x:
+    raise newException(ValueError, fmt"A{t} not in interval {points[0].x}..{ap.x}. ")    
+  for p in points[1..^1]:
+    if (p.x<t and t<=ap.x): 
+      upper = interpolate(t, p.x, ap.x, p.y, ap.y)
+      break
+    ap = p
+
+  # Lower coordinates, x is increasing    
+  points = foil.lower_points
+  
+  ap = points[0]
+  if t<ap.x or t>points[^1].x:
+    #for p in points:
+    #  echo p
+    raise newException(ValueError, fmt"B{t} not in interval {ap.x}..{points[^1].x}. ")
+  for p in points[1..^1]:
+    if (ap.x<t and t<=p.x): 
+      lower = interpolate(t, ap.x, p.x, ap.y, p.y)
+      break
     ap = p
   return (lower, upper)
-
-
+    
 proc scalarprd*(p1, p2: Vec2): float =
   let p = p1*p2
   p.x+p.y
