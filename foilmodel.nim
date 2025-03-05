@@ -57,6 +57,49 @@ proc compute_f2c*(figure: FoilFigure, airfoil: Airfoil): Mat3 =
   let t = translate(pa) # pa0 auf pa schieben
   result = t*s*r*b
   
+
+proc compute_m2c*(figure: FoilFigure): Mat3 =
+  # berechnet model->canvas
+  #
+  # Im Modellsystem ist A auf (0, 0) und B auf (1, 0). Das gilt auch,
+  # wenn eine Tangentenwinkel alpha>0 eingestellt ist und ensprechend
+  # A nicht in der Leading Edge liegt.
+  let pa = figure.pa
+  let pb = figure.pb
+
+  let ab = (pb-pa)
+  let beta = arctan2(ab.y, ab.x)
+  let r = rotate(float32(-beta))  # Um beta drehen
+  
+  let l = (pa-pb).length
+  let s = scale(vec2(l, l)) # Skalieren
+
+  let t = translate(pa) # (0, 0) auf pa schieben
+  
+  result = t*s*r
+
+proc draw_modelcs*(figure: FoilFigure, ctx: Context, trafo: Mat3) =
+  # for debugging
+
+  let m = trafo*figure.compute_m2c()
+
+  ctx.strokeStyle = rgba(255, 0, 0, 100)
+  ctx.strokeSegment(segment(m*vec2(0.0, 0.0), m*vec2(1.0, 0.0)))
+  ctx.strokeSegment(segment(m*vec2(0, -0.1), m*vec2(0, 0.1)))
+  ctx.strokeSegment(segment(m*vec2(1, -0.1), m*vec2(1, 0.1)))
+
+
+  let font = readFont("devel/NotoSans-Regular_4.ttf")
+  font.size = 20
+  font.paint.color = color(0, 0, 0) # warum geht hier nicht rgba?
+
+  
+  var t = font.typeset("A")  
+  ctx.image.fillText(t, translate(m*vec2(0.0, 0.0)))
+  t = font.typeset("B")  
+  ctx.image.fillText(t, translate(m*vec2(1, 0)))
+
+  
   
 method get_handles*(figure: FoilFigure): seq[Handle] =
   result = @[]
@@ -69,26 +112,25 @@ method get_handles*(figure: FoilFigure): seq[Handle] =
   let up = vec2(-v.y, v.x)*(1.0/l)
   let down = up*(-1)
 
-  let foil2canvas = f2c(figure, figure.airfoil)
-  let canvas2foil = foil2canvas.inverse()
+  #let foil2canvas = compute_f2c(figure, figure.airfoil)
+  #let canvas2foil = foil2canvas.inverse()
 
-  let qa = canvas2foil*figure.pa # in foil-Koordinaten
-  let qb = canvas2foil*figure.pb # ~
-
+  let m2c = compute_m2c(figure)
+  
   var idx = 3
   # upper sliders
   for i, pos in figure.positions:
-    let x = qa.x+(qb.x-qa.x)*pos
+    let x = pos
     let y = figure.upper_values[i]
-    let c = foil2canvas*vec2(x, y) # XXX falsch: wir dürfen foil-ks nicht verwenden!
+    let c = m2c*vec2(x, y)
     result.add(Slider(position:c, direction:up, idx:idx))
     idx += 1
 
   # lower sliders
   for i, pos in figure.positions:
-    let x = qa.x+(qb.x-qa.x)*pos
+    let x = pos
     let y = figure.lower_values[i]
-    let c = foil2canvas*vec2(x, y)    
+    let c = m2c*vec2(x, y)    
     result.add(Slider(position:c, direction:down, idx:idx))
     idx += 1
     
@@ -115,9 +157,7 @@ method move_handle*(figure: FoilFigure, idx: int, pos: Vec2, trafo: Mat3) =
     alpha = min(90, alpha)
     figure.alpha = alpha
   else:
-    let foil2canvas = f2c(figure, figure.airfoil)
-    let canvas2foil = foil2canvas.inverse()
-    let q = canvas2foil*p # point in foil-coordinates
+    let q = compute_m2c(figure).inverse*p
     
     if idx <= 5:
       # upper sliders
@@ -144,12 +184,13 @@ proc compute_path*(foil: Airfoil, trafo: Mat3): Path =
 method draw*(figure: FoilFigure, ctx: Context, trafo: Mat3) =
   ctx.fillStyle = rgba(0, 0, 255, 100)
   #ctx.strokeStyle = rgba(0, 0, 255, 100)
-  let m = f2c(figure, figure.airfoil)
+  let m = compute_f2c(figure, figure.airfoil)
   let path = compute_path(figure.airfoil, trafo*m)
   ctx.fill(path)
 
-  let path2 = compute_path(figure.airfoil.rotated(0.1), trafo*m)
-  ctx.stroke(path2)
+  #let path2 = compute_path(figure.airfoil.rotated(0.1), trafo*m)
+  #ctx.stroke(path2)
+  draw_modelcs(figure, ctx, trafo) # XXX debug
   
 method draw_dragged*(figure: FoilFigure, ctx: Context, trafo: Mat3) =
   figure.draw(ctx, trafo)
@@ -173,22 +214,21 @@ method draw_dragged*(figure: FoilFigure, ctx: Context, trafo: Mat3) =
   
 
 method hit*(figure: FoilFigure, position: Vec2, trafo: Mat3): bool =
-  let m = trafo*f2c(figure, figure.airfoil)
+  let m = trafo*compute_f2c(figure, figure.airfoil)
   let p = m.inverse*position
   overlaps(p, Polygon(figure.airfoil.points))
 
 
 method match_sliders*(figure: FoilFigure, airfoil: Airfoil): (seq[float], seq[float]) =
   # Sucht die Werte (upper, lower), die airfoil bei gegebenem t am besten beschreiben
-  let pa = find_tangent(airfoil, figure.alpha)
-  let pb = figure.airfoil.points[0] # trailing edge, upper
-  var upper_values = @[0.01, 0.015, 0.01] # XXX
-  var lower_values = @[0.01, 0.012, 0.01]
+  let m = compute_m2c(figure).inverse*compute_f2c(figure, airfoil) # foil -> model
+  let foil = airfoil.transformed(m)
+  
+  var upper_values, lower_values: seq[float]
   for i, pos in figure.positions:
-    let x = (pa+(pb-pa)*pos).x
-    let (lower, upper) = interpolate_airfoil(x, airfoil)
-    lower_values[i] = lower
-    upper_values[i] = upper    
+    let (lower, upper) = interpolate_airfoil(pos, foil)
+    lower_values.add(lower)
+    upper_values.add(upper)    
   return (upper_values, lower_values)
 
   
