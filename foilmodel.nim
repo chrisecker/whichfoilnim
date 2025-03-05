@@ -32,22 +32,14 @@ proc pt*(figure: FoilFigure): Vec2 = # umbenennen in compute_pt?
   let ab = figure.pb-figure.pa
   return r*ab.normalize*figure.l+figure.pa
 
-proc compute_trafo*(figure: FoilFigure, airfoil: Airfoil): Mat3 =
-  # berechnet airfoil->canvas
+proc compute_f2c*(figure: FoilFigure, airfoil: Airfoil): Mat3 =
+  # berechnet foil->canvas
   let pa = figure.pa
   let pb = figure.pb
   let pt = figure.pt
-  let sp = scalarprd((pt-pa).normalize, (pb-pa).normalize)
-  var alpha: float
-  if sp>=1:
-    alpha = 0.0
-  elif sp<= -1:
-    alpha = PI
-  else:
-    alpha = arccos(sp)
+
+  let alpha = figure.alpha*PI/180.0
   let pa0 = find_tangent(figure.airfoil, alpha)
-  #let pa0 = vec2(0, 0)
-  #echo "pa0=", pa0, "->", round(arccos(cosalpha)*180/PI, 2), "°"
   let pb0 = figure.airfoil.points[0] # trailing edge, upper
 
   # jetzt müssen wir eine Trafo finden mit der pa0 auf pa und pb0 auf
@@ -60,15 +52,10 @@ proc compute_trafo*(figure: FoilFigure, airfoil: Airfoil): Mat3 =
   let beta = arctan2(d.y, d.x)+arctan2(d0.y, d0.x)
 
   let b = translate(vec2(float(-pa0.x), float(-pa0.y))) # den Punkt pa0 in den Ursprung schieben
-  #echo "b*pa0 sollte 0,0 sein: ", b*pa0 # ok
   let r = rotate(float32(beta))  # Um beta drehen
-  #echo "b*pa0 sollte noch immer 0,0 sein: ", b*pa0 # ok
-  #echo "pa0-pb0 sollte parallel zu pa-pb sein", (pa0-pb0).normalize, " vs ", (pa-pb).normalize
   let s = scale(vec2(f, float(-f))) # Skalieren
   let t = translate(pa) # pa0 auf pa schieben
   result = t*s*r*b
-  #echo result*pa0, "vs. ", pa
-  #return t*s*r*b
   
   
 method get_handles*(figure: FoilFigure): seq[Handle] =
@@ -82,7 +69,7 @@ method get_handles*(figure: FoilFigure): seq[Handle] =
   let up = vec2(-v.y, v.x)*(1.0/l)
   let down = up*(-1)
 
-  let foil2canvas = compute_trafo(figure, figure.airfoil)
+  let foil2canvas = f2c(figure, figure.airfoil)
   let canvas2foil = foil2canvas.inverse()
 
   let qa = canvas2foil*figure.pa # in foil-Koordinaten
@@ -93,7 +80,7 @@ method get_handles*(figure: FoilFigure): seq[Handle] =
   for i, pos in figure.positions:
     let x = qa.x+(qb.x-qa.x)*pos
     let y = figure.upper_values[i]
-    let c = foil2canvas*vec2(x, y)
+    let c = foil2canvas*vec2(x, y) # XXX falsch: wir dürfen foil-ks nicht verwenden!
     result.add(Slider(position:c, direction:up, idx:idx))
     idx += 1
 
@@ -128,7 +115,7 @@ method move_handle*(figure: FoilFigure, idx: int, pos: Vec2, trafo: Mat3) =
     alpha = min(90, alpha)
     figure.alpha = alpha
   else:
-    let foil2canvas = compute_trafo(figure, figure.airfoil)
+    let foil2canvas = f2c(figure, figure.airfoil)
     let canvas2foil = foil2canvas.inverse()
     let q = canvas2foil*p # point in foil-coordinates
     
@@ -157,10 +144,12 @@ proc compute_path*(foil: Airfoil, trafo: Mat3): Path =
 method draw*(figure: FoilFigure, ctx: Context, trafo: Mat3) =
   ctx.fillStyle = rgba(0, 0, 255, 100)
   #ctx.strokeStyle = rgba(0, 0, 255, 100)
-  let m = compute_trafo(figure, figure.airfoil)
+  let m = f2c(figure, figure.airfoil)
   let path = compute_path(figure.airfoil, trafo*m)
   ctx.fill(path)
-  #ctx.stroke(path)
+
+  let path2 = compute_path(figure.airfoil.rotated(0.1), trafo*m)
+  ctx.stroke(path2)
   
 method draw_dragged*(figure: FoilFigure, ctx: Context, trafo: Mat3) =
   figure.draw(ctx, trafo)
@@ -184,19 +173,19 @@ method draw_dragged*(figure: FoilFigure, ctx: Context, trafo: Mat3) =
   
 
 method hit*(figure: FoilFigure, position: Vec2, trafo: Mat3): bool =
-  let m = trafo*compute_trafo(figure, figure.airfoil)
+  let m = trafo*f2c(figure, figure.airfoil)
   let p = m.inverse*position
   overlaps(p, Polygon(figure.airfoil.points))
 
 
 method match_sliders*(figure: FoilFigure, airfoil: Airfoil): (seq[float], seq[float]) =
   # Sucht die Werte (upper, lower), die airfoil bei gegebenem t am besten beschreiben
-  let pt = find_tangent(airfoil, figure.alpha)
+  let pa = find_tangent(airfoil, figure.alpha)
   let pb = figure.airfoil.points[0] # trailing edge, upper
   var upper_values = @[0.01, 0.015, 0.01] # XXX
   var lower_values = @[0.01, 0.012, 0.01]
   for i, pos in figure.positions:
-    let x = (pt+(pb-pt)*pos).x
+    let x = (pa+(pb-pa)*pos).x
     let (lower, upper) = interpolate_airfoil(x, airfoil)
     lower_values[i] = lower
     upper_values[i] = upper    
@@ -252,6 +241,7 @@ when isMainModule:
       for d in walkDir("foils", relative=false):
         i += 1
         if d.kind == pcFile:
+          echo $d.path
           try:
             testfoil = load_airfoil($d.path)
           except:
@@ -259,5 +249,9 @@ when isMainModule:
             if d.path != "foils/oaf095-il.dat":
                continue
             raise
-          let b = foil.badness(testfoil)
+          try:
+            let b = foil.badness(testfoil)
+          except:
+            echo "Kann nicht berechnet werden", i, " ", d.path
+            continue
           echo b, ": ",  $d.path 
