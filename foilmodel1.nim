@@ -27,8 +27,11 @@ proc newFoilModel1*(path: string): FoilModel1 =
   result.lower_values = @[-0.01, -0.01, -0.01, -0.01]
 
 
-proc pt*(figure: FoilModel1): Vec2 = 
-  let r = rotate(float32(figure.alpha*PI/180.0))
+proc pt*(figure: FoilModel1): Vec2 =
+  var alpha = float32(figure.alpha*PI/180.0)
+  if figure.mirror:
+    alpha = -alpha
+  var r = rotate(alpha)
   let ab = figure.pb-figure.pa
   return r*ab.normalize*figure.l+figure.pa
 
@@ -47,13 +50,18 @@ proc compute_f2c*(figure: FoilModel1, airfoil: Airfoil): Mat3 =
 
   let d = pb-pa
   let d0 = pb0-pa0
+  var f = 1.0
+  if figure.mirror:
+    f = -1.0
   
-  let f = d.length/d0.length
-  let beta = arctan2(d.y, d.x)+arctan2(d0.y, d0.x)
+  let fx = d.length/d0.length
+  let fy = -fx*f
+  var beta = arctan2(d.y, d.x)*f+arctan2(d0.y, d0.x)
 
   let b = translate(vec2(float(-pa0.x), float(-pa0.y))) # den Punkt pa0 in den Ursprung schieben
-  let r = rotate(float32(beta))  # Um beta drehen
-  let s = scale(vec2(f, float(-f))) # Skalieren
+
+  let r = rotate(float32(beta))  # Um beta drehen    
+  let s = scale(vec2(fx, fy)) # Skalieren
   let t = translate(pa) # pa0 auf pa schieben
   result = t*s*r*b
   
@@ -68,15 +76,15 @@ proc compute_m2c*(figure: FoilModel1): Mat3 =
   let pb = figure.pb
 
   let ab = (pb-pa)
-  let beta = arctan2(ab.y, ab.x)
-  let r = rotate(float32(-beta))  # Um beta drehen
-  
   let l = (pa-pb).length
-  let s = scale(vec2(l, -l)) # Skalieren
-
-  let t = translate(pa) # (0, 0) auf pa schieben
-  
-  result = t*r*s
+  var f = 1.0
+  if figure.mirror:
+    f = -1.0
+  let beta = arctan2(ab.y, ab.x)
+  let r = rotate(float32(f*beta))  # Um beta drehen
+  let s = scale(vec2(l, -f*l)) # Skalieren
+  let t = translate(pa) # (0, 0) auf pa schieben  
+  result = t*s*r
 
 proc draw_modelcs*(figure: FoilModel1, ctx: Context, trafo: Mat3) =
   # for debugging
@@ -117,8 +125,11 @@ method get_handles*(figure: FoilModel1): seq[Handle] =
 
   let v = figure.pa-figure.pb
   let l = v.length
-  let up = vec2(-v.y, v.x)*(1.0/l)
-  let down = up*(-1)
+  var up = vec2(-v.y, v.x)*(1.0/l)
+  var down = up*(-1)
+  if figure.mirror:
+    up = -up
+    down = -down
 
   #let foil2canvas = compute_f2c(figure, figure.airfoil)
   #let canvas2foil = foil2canvas.inverse()
@@ -157,6 +168,8 @@ method move_handle*(figure: FoilModel1, idx: int, pos: Vec2, trafo: Mat3) =
     let a1 = arctan2(ab.y, ab.x)
     let a2 = arctan2(at.y, at.x)
     var alpha = (a1-a2)*180/PI
+    if figure.mirror:
+      alpha = -alpha
     if alpha > 180:
       alpha -= 360
     elif alpha < -180:

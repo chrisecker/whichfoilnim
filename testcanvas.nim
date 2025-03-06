@@ -56,6 +56,9 @@ when isMainModule:
 
   var b_search = newButton("Profil suchen")
   p.add(b_search)
+
+  var b_mirror = newButton("Profil spiegeln")
+  p.add(b_mirror)
   
   
   window.onKeyDown = proc(event: KeyboardEvent) =
@@ -121,6 +124,11 @@ when isMainModule:
       model.airfoil = best
       ctrl.forceRedraw()
       echo "Best: ", best_name, " ", best_penalty
+
+  b_mirror.onClick = proc(event: ClickEvent) =
+    model.mirror = not model.mirror
+    echo "setze mirror auf ", model.mirror
+    ctrl.forceRedraw
     
     
   proc on_combo(event: ComboBoxChangeEvent) =
