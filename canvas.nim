@@ -203,10 +203,11 @@ method handleDrawEvent*(ctrl: CanvasCtrl, event: DrawEvent) =
 
 proc handleClick(ctrl: CanvasCtrl, p: Vec2) =
   var found = false
+  ctrl.drag_start = p
+
   if not isNil(ctrl.current):
     for i, handle in ctrl.current.get_handles:
       if handle.hit(p, ctrl.trafo) == true:
-        ctrl.drag_start = p
         ctrl.drag_handle = handle
         ctrl.forceRedraw
         found = true
@@ -221,44 +222,48 @@ proc handleClick(ctrl: CanvasCtrl, p: Vec2) =
     ctrl.forceRedraw()
 
 
-proc handleZoomIn(ctrl: CanvasCtrl, p: Vec2) =
+proc zoomIn(ctrl: CanvasCtrl, p: Vec2) =
   let q = ctrl.trafo.inverse()*p
   let s = scale(vec2(1.1, 1.1))
   ctrl.trafo = ctrl.trafo*translate(q)*s*translate(-q)
   ctrl.forceRedraw
 
 
-proc handleZoomOut(ctrl: CanvasCtrl, p: Vec2) =
+proc zoomOut(ctrl: CanvasCtrl, p: Vec2) =
   let q = ctrl.trafo.inverse()*p
   let s = scale(vec2(1/1.1, 1/1.1))
   ctrl.trafo = ctrl.trafo*translate(q)*s*translate(-q)
   ctrl.forceRedraw
-  
+
+
+proc moveView(ctrl: CanvasCtrl, p: Vec2) =
+  ctrl.trafo = translate(p)*ctrl.trafo
+  ctrl.forceRedraw
+
 
 method handleMouseScrollEvent*(ctrl: CanvasCtrl, event: MouseScrollEvent) =
   let p = vec2(float(event.x), float(event.y))
-  echo "Scroll", event.direction
   if event.direction == MouseScroll_Up:
-    handleZoomIn(ctrl, p)
+    zoomOut(ctrl, p)
   elif event.direction == MouseScroll_Down:
-    handleZoomOut(ctrl, p)
+    zoomIn(ctrl, p)
   
 method handleMouseButtonDownEvent*(ctrl: CanvasCtrl, event: MouseEvent) =
   let p = vec2(float(event.x), float(event.y))
   if event.button == MouseButton_Left:
     handleClick(ctrl, p)
   elif event.button == MouseButton_Middle:
-    handleZoomIn(ctrl, p)
+    zoomIn(ctrl, p)
   elif event.button == MouseButton_Right:
-    handleZoomOut(ctrl, p)
-    
-    
+    zoomOut(ctrl, p)
+        
 
 method handleMouseButtonUpEvent*(ctrl: CanvasCtrl, event: MouseEvent) =
   let handle = ctrl.drag_handle
-  if isNil(handle):    
-    return
   let p = vec2(float(event.x), float(event.y))
+  if isNil(handle):
+    ctrl.moveView(p-ctrl.dragStart)
+    return
   let figure = ctrl.current
   if isNil(figure):
     return
