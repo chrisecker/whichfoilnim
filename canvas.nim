@@ -201,8 +201,7 @@ method handleDrawEvent*(ctrl: CanvasCtrl, event: DrawEvent) =
 
 
 
-method handleMouseButtonDownEvent*(ctrl: CanvasCtrl, event: MouseEvent) =
-  let p = vec2(float(event.x), float(event.y))
+proc handleClick(ctrl: CanvasCtrl, p: Vec2) =
   var found = false
   if not isNil(ctrl.current):
     for i, handle in ctrl.current.get_handles:
@@ -220,11 +219,44 @@ method handleMouseButtonDownEvent*(ctrl: CanvasCtrl, event: MouseEvent) =
   if not found:
     ctrl.current = nil
     ctrl.forceRedraw()
+
+
+proc handleZoomIn(ctrl: CanvasCtrl, p: Vec2) =
+  let q = ctrl.trafo.inverse()*p
+  let s = scale(vec2(1.1, 1.1))
+  ctrl.trafo = ctrl.trafo*translate(q)*s*translate(-q)
+  ctrl.forceRedraw
+
+
+proc handleZoomOut(ctrl: CanvasCtrl, p: Vec2) =
+  let q = ctrl.trafo.inverse()*p
+  let s = scale(vec2(1/1.1, 1/1.1))
+  ctrl.trafo = ctrl.trafo*translate(q)*s*translate(-q)
+  ctrl.forceRedraw
+  
+
+method handleMouseScrollEvent*(ctrl: CanvasCtrl, event: MouseScrollEvent) =
+  let p = vec2(float(event.x), float(event.y))
+  echo "Scroll", event.direction
+  if event.direction == MouseScroll_Up:
+    handleZoomIn(ctrl, p)
+  elif event.direction == MouseScroll_Down:
+    handleZoomOut(ctrl, p)
+  
+method handleMouseButtonDownEvent*(ctrl: CanvasCtrl, event: MouseEvent) =
+  let p = vec2(float(event.x), float(event.y))
+  if event.button == MouseButton_Left:
+    handleClick(ctrl, p)
+  elif event.button == MouseButton_Middle:
+    handleZoomIn(ctrl, p)
+  elif event.button == MouseButton_Right:
+    handleZoomOut(ctrl, p)
+    
     
 
-method handleMouseButtonUpEvent*(ctrl: CanvasCtrl, event: MouseEvent) =  
+method handleMouseButtonUpEvent*(ctrl: CanvasCtrl, event: MouseEvent) =
   let handle = ctrl.drag_handle
-  if isNil(handle):
+  if isNil(handle):    
     return
   let p = vec2(float(event.x), float(event.y))
   let figure = ctrl.current
