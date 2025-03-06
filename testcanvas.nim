@@ -1,5 +1,5 @@
 import canvas
-import foilmodel
+import foilmodel1
 import airfoil
 import nigui
 import pixie
@@ -20,23 +20,22 @@ when isMainModule:
   p.widthMode = WidthMode_Fill
   p.heightMode = HeightMode_Expand
 
-  var c = newCanvasCtrl()
-  c.trafo = mat3(
+  var ctrl = newCanvasCtrl()
+  ctrl.trafo = mat3(
       0.5, 0.0, 0.0,
       0.0, 0.5, 0.0,
       0.0, 0.0, 1.0
     )
+  p.add(ctrl)
 
-  p.add(c)
 
-
-  c.widthMode = WidthMode_Fill
-  c.heightMode = HeightMode_Expand
+  ctrl.widthMode = WidthMode_Fill
+  ctrl.heightMode = HeightMode_Expand
 
   
   if paramCount() >= 1:
     let fn = commandLineParams()[0]
-    c.bgimage = readImage(fn)
+    ctrl.bgimage = readImage(fn)
 
   # gtk_combo_box_text_new_with_entry
   var b = newComboBox()
@@ -61,39 +60,36 @@ when isMainModule:
   
   window.onKeyDown = proc(event: KeyboardEvent) =
     if event.key == Key_Plus:
-      c.trafo = c.trafo*scale(vec2(1.1, 1.1))
-      c.forceRedraw
+      ctrl.trafo = ctrl.trafo*scale(vec2(1.1, 1.1))
+      ctrl.forceRedraw
     elif event.key == Key_Minus:
       const f = 1/1.1
-      c.trafo = c.trafo*scale(vec2(f, f))
+      ctrl.trafo = ctrl.trafo*scale(vec2(f, f))
     elif event.key == Key_Left:
-      c.trafo = c.trafo*translate(vec2(5, 0))
+      ctrl.trafo = ctrl.trafo*translate(vec2(5, 0))
     elif event.key == Key_Right:
-      c.trafo = c.trafo*translate(vec2(-5, 0))
+      ctrl.trafo = ctrl.trafo*translate(vec2(-5, 0))
     elif event.key == Key_Up:
-      c.trafo = c.trafo*translate(vec2(0, 5))
+      ctrl.trafo = ctrl.trafo*translate(vec2(0, 5))
     elif event.key == Key_Down:
-      c.trafo = c.trafo*translate(vec2(0, -5))
+      ctrl.trafo = ctrl.trafo*translate(vec2(0, -5))
     elif Key_Q.isDown() and Key_ControlL.isDown():
       app.quit()    
-    c.forceRedraw
+    ctrl.forceRedraw
 
     
-  var foil = newFoilFigure("devel/fx61168-il.dat")
+  var model = newFoilModel1("devel/fx61168-il.dat")
 
-  foil.pa = vec2(100, 400)
-  foil.pb = vec2(500, 400)
-  foil.alpha = 90
-  foil.l = 100
-  #foil.su0 = 0.1
-  #foil2.pt = vec2(20, 0)
-  c.figures.add(foil)
+  model.pa = vec2(100, 400)
+  model.pb = vec2(500, 400)
+  model.alpha = 90
+  model.l = 100
+  model.set_sliders()
+  ctrl.figures.add(model)
 
   b_set.onClick = proc(event: ClickEvent) =
-    let (upper, lower) = foil.match_sliders(foil.airfoil)
-    foil.upper_values = upper
-    foil.lower_values = lower
-    c.forceRedraw
+    model.set_sliders()
+    ctrl.forceRedraw
 
   b_search.onClick = proc(event: ClickEvent) =
       var testfoil: Airfoil
@@ -113,7 +109,7 @@ when isMainModule:
             continue
 
           try:
-            b = foil.badness(testfoil)
+            b = model.badness(testfoil)
           except:
             echo "Kann nicht berechnet werden", i, " ", d.path
             continue
@@ -122,15 +118,15 @@ when isMainModule:
             best_penalty = b
             best_name = $d.path
             best = testfoil
-      foil.airfoil = best
-      c.forceRedraw()
+      model.airfoil = best
+      ctrl.forceRedraw()
       echo "Best: ", best_name, " ", best_penalty
     
     
   proc on_combo(event: ComboBoxChangeEvent) =
     var path = ComboBox(event.control).value
-    foil.airfoil = load_airfoil(path)
-    c.forceRedraw
+    model.airfoil = load_airfoil(path)
+    ctrl.forceRedraw
   b.onChange = on_combo
 
 
