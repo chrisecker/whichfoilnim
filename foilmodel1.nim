@@ -25,6 +25,9 @@ proc newFoilModel1*(path: string): FoilModel1 =
   result.positions = @[0.1, 0.3, 0.5, 0.7]
   result.upper_values = @[0.01, 0.01, 0.01, 0.01]
   result.lower_values = @[-0.01, -0.01, -0.01, -0.01]
+  #result.positions = @[0.1, 0.3]
+  #result.upper_values = @[0.01, 0.01]
+  #result.lower_values = @[-0.01, -0.01]
 
 
 proc pt*(figure: FoilModel1): Vec2 =
@@ -113,10 +116,10 @@ proc draw_modelcs*(figure: FoilModel1, ctx: Context, trafo: Mat3) =
   
   
 method get_handles*(figure: FoilModel1): seq[Handle] =
+  let label = figure.alpha.formatFloat(ffDecimal, 1) & "°"
   result = @[]
   result.add(SimpleHandle(position:figure.pa, idx:0))
   result.add(SimpleHandle(position:figure.pb, idx:1))
-  let label = figure.alpha.formatFloat(ffDecimal, 1) & "°"
   result.add(SmallHandle(position:figure.pt, idx:2, label:label))
 
   let v = figure.pa-figure.pb
@@ -135,21 +138,26 @@ method get_handles*(figure: FoilModel1): seq[Handle] =
   var idx = 3
   # upper sliders
   for i, pos in figure.positions:
-    let x = pos
     let y = figure.upper_values[i]
-    let c = m2c*vec2(x, y)
+    let c = m2c*vec2(pos, y)
     let label = (y*100).formatFloat(ffDecimal, 1) 
     result.add(Slider(position:c, direction:up, idx:idx, label:label))
     idx += 1
 
   # lower sliders
   for i, pos in figure.positions:
-    let x = pos
     let y = figure.lower_values[i]
-    let c = m2c*vec2(x, y)    
+    let c = m2c*vec2(pos, y)    
     let label = (y*100).formatFloat(ffDecimal, 1) 
     result.add(Slider(position:c, direction:down, idx:idx, label:label))
     idx += 1
+    
+  # center sliders
+  for pos in figure.positions:
+    let c = m2c*vec2(pos, 0)    
+    result.add(SmallHandle(position:c, idx:idx))
+    idx += 1
+    
     
 
   
@@ -177,15 +185,22 @@ method move_handle*(figure: FoilModel1, idx: int, pos: Vec2, trafo: Mat3) =
     figure.alpha = alpha
   else:
     let q = compute_m2c(figure).inverse*p
-    
-    if idx <= 2+len(figure.positions):
+    let n = len(figure.positions)
+    let i1 = 3
+    let i2 = 3+n
+    let i3 = 3+2*n
+    if idx < i2:
       # upper sliders
-      let i = idx-3    
+      let i = idx-i1    
       figure.upper_values[i] = q.y
-    else:
+    elif idx < i3:
       # lower sliders
-      let i = idx-3-len(figure.positions)
+      let i = idx-i2
       figure.lower_values[i] = q.y
+    else:
+      # center sliders
+      let i = idx-i3
+      figure.positions[i] = min(1, max(0, q.x))
       
       
     
