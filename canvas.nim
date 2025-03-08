@@ -26,6 +26,7 @@ method hit*(handle: Handle, position: Vec2, trafo: Mat3): bool {.base.} =
 
   
 type SimpleHandle* = ref object of Handle
+  label*: string
   
 method draw*(handle: SimpleHandle, ctx: Context, trafo: Mat3) =
   ctx.strokeStyle = rgba(0, 0, 0, 255)  
@@ -41,6 +42,10 @@ method draw_dragged*(handle: SimpleHandle, ctx: Context, trafo: Mat3) =
   ctx.strokeSegment(segment(p+dx*2, p+dx))
   ctx.strokeSegment(segment(p-dy*2, p-dy))
   ctx.strokeSegment(segment(p+dy*2, p+dy))
+  ctx.fontSize = 20
+  ctx.fillStyle = rgba(0, 0, 0, 255)  
+  ctx.fillText(handle.label, p)
+
   
 method hit*(handle: SimpleHandle, position: Vec2, trafo: Mat3): bool =
   return (trafo*handle.position - position).length < 10
@@ -62,6 +67,9 @@ method draw_dragged*(handle: SmallHandle, ctx: Context, trafo: Mat3) =
   let box = Rect(x:x-r, y:y-r, w:2*r, h:2*r)
   ctx.strokeStyle = rgba(255, 0, 0, 255)
   ctx.strokeRect(box)
+  ctx.fontSize = 20
+  ctx.fillStyle = rgba(0, 0, 0, 255)  
+  ctx.fillText(handle.label, x, y)
   
 method hit*(handle: SmallHandle, position: Vec2, trafo: Mat3): bool =
   let p1 = trafo*handle.position
@@ -95,6 +103,13 @@ method draw*(slider: Slider, ctx: Context, trafo: Mat3) =
 method draw_dragged*(slider: Slider, ctx: Context, trafo: Mat3) =
   ctx.strokeStyle = rgba(255, 0, 0, 255)
   ctx.stroke(compute_path(slider, trafo))
+  ctx.fontSize = 20
+  ctx.fillStyle = rgba(0, 0, 0, 255)
+  #ctx.textAlign = haCenter
+  ctx.textAlign = CenterAlign
+  ctx.textBaseline = MiddleBaseline
+  let ex = slider.direction.normalize()
+  ctx.fillText(slider.label, trafo*slider.position+slider.direction.normalize*20)
     
 method hit*(slider: Slider, position: Vec2, trafo: Mat3): bool =
   let p1 = trafo*slider.position
@@ -180,6 +195,8 @@ method handleDrawEvent*(ctrl: CanvasCtrl, event: DrawEvent) =
       ctrl.cash_hash = myhash
   
   let ctx = newContext(image)
+  ctx.font = "devel/NotoSans-Regular_4.ttf"
+
   for figure in ctrl.figures:
     if figure == ctrl.current:
       figure.draw_dragged(ctx, ctrl.trafo)

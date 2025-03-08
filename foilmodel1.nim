@@ -10,7 +10,7 @@ import foilmodel
 
 
 
-
+  
 type FoilModel1* = ref object of FoilModel
   pa*, pb*: Vec2
   alpha*: float # angle of tangent
@@ -104,16 +104,11 @@ proc draw_modelcs*(figure: FoilModel1, ctx: Context, trafo: Mat3) =
   ctx.strokeSegment(segment(m*vec2(0, 0.1), m*vec2(-d, 0.1-d)))
   ctx.strokeSegment(segment(m*vec2(0, 0.1), m*vec2(d, 0.1-d)))
 
-
-  let font = readFont("devel/NotoSans-Regular_4.ttf")
-  font.size = 20
-  font.paint.color = color(0, 0, 0) # warum geht hier nicht rgba?
-
-  
-  var t = font.typeset("A")  
-  ctx.image.fillText(t, translate(m*vec2(0.0, 0.0)))
-  t = font.typeset("B")  
-  ctx.image.fillText(t, translate(m*vec2(1, 0)))
+  if false:
+    ctx.fontSize = 20
+    ctx.fillStyle = rgba(0, 0, 0, 255)  
+    ctx.fillText("A", m*vec2(0, 0))    
+    ctx.fillText("B", m*vec2(1, 0))
 
   
   
@@ -121,7 +116,8 @@ method get_handles*(figure: FoilModel1): seq[Handle] =
   result = @[]
   result.add(SimpleHandle(position:figure.pa, idx:0))
   result.add(SimpleHandle(position:figure.pb, idx:1))
-  result.add(SmallHandle(position:figure.pt, idx:2))
+  let label = figure.alpha.formatFloat(ffDecimal, 1) & "°"
+  result.add(SmallHandle(position:figure.pt, idx:2, label:label))
 
   let v = figure.pa-figure.pb
   let l = v.length
@@ -142,7 +138,8 @@ method get_handles*(figure: FoilModel1): seq[Handle] =
     let x = pos
     let y = figure.upper_values[i]
     let c = m2c*vec2(x, y)
-    result.add(Slider(position:c, direction:up, idx:idx))
+    let label = (y*100).formatFloat(ffDecimal, 1) 
+    result.add(Slider(position:c, direction:up, idx:idx, label:label))
     idx += 1
 
   # lower sliders
@@ -150,7 +147,8 @@ method get_handles*(figure: FoilModel1): seq[Handle] =
     let x = pos
     let y = figure.lower_values[i]
     let c = m2c*vec2(x, y)    
-    result.add(Slider(position:c, direction:down, idx:idx))
+    let label = (y*100).formatFloat(ffDecimal, 1) 
+    result.add(Slider(position:c, direction:down, idx:idx, label:label))
     idx += 1
     
 
@@ -207,12 +205,11 @@ method draw*(figure: FoilModel1, ctx: Context, trafo: Mat3) =
   #ctx.strokeStyle = rgba(0, 0, 255, 100)
   ctx.lineWidth = 1
 
-  let m = compute_f2c(figure, figure.airfoil)
-  let path = compute_path(figure.airfoil, trafo*m)
-  ctx.fill(path)
+  if figure.fill:
+    let m = compute_f2c(figure, figure.airfoil)
+    let path = compute_path(figure.airfoil, trafo*m)
+    ctx.fill(path)
 
-  #let path2 = compute_path(figure.airfoil.rotated(0.1), trafo*m)
-  #ctx.stroke(path2)
   draw_modelcs(figure, ctx, trafo) # XXX debug
   
 method draw_dragged*(figure: FoilModel1, ctx: Context, trafo: Mat3) =
@@ -229,13 +226,6 @@ method draw_dragged*(figure: FoilModel1, ctx: Context, trafo: Mat3) =
   let dup = vec2(-tmp.y, tmp.x)
   ctx.strokeSegment(segment(pa-dup, pa+dup))
   
-  let font = readFont("devel/NotoSans-Regular_4.ttf")
-  font.size = 20
-  font.paint.color = color(0, 0, 0) # warum geht hier nicht rgba?
-  let text = figure.alpha.formatFloat(ffDecimal, 1) & "°"
-  let t = font.typeset(text)  
-  ctx.image.fillText(t, translate(pt))
-  # Alternativ: in draw_dragged des Handels!
   
 
 method hit*(figure: FoilModel1, position: Vec2, trafo: Mat3): bool =

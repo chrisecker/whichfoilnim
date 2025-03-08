@@ -15,7 +15,7 @@ when isMainModule:
 
   var window = newWindow()
 
-  var p = newLayoutContainer(Layout_Vertical)
+  var p = newLayoutContainer(Layout_Horizontal)
   window.add(p)
   p.widthMode = WidthMode_Fill
   p.heightMode = HeightMode_Expand
@@ -26,12 +26,15 @@ when isMainModule:
       0.0, 0.5, 0.0,
       0.0, 0.0, 1.0
     )
+  ctrl.widthMode = WidthMode_Expand
+  ctrl.heightMode = HeightMode_Expand
   p.add(ctrl)
 
-
-  ctrl.widthMode = WidthMode_Fill
-  ctrl.heightMode = HeightMode_Expand
-
+  var box = newLayoutContainer(Layout_Vertical)
+  p.add(box)
+  box.widthMode = WidthMode_Auto
+  box.heightMode = HeightMode_Expand
+  
   
   if paramCount() >= 1:
     let fn = commandLineParams()[0]
@@ -49,18 +52,21 @@ when isMainModule:
   options.sort(system.cmp)
   
   b.options = options
-  p.add(b)
+  box.add(b)
 
+  var cb_mirror = newCheckbox("Profil spiegeln")
+  box.add(cb_mirror)
+
+  var cb_fill = newCheckbox("Profil zeichnen")
+  box.add(cb_fill)
+  
   var b_set = newButton("Schieber einstellen")
-  p.add(b_set)
+  box.add(b_set)
 
   var b_search = newButton("Profil suchen")
-  p.add(b_search)
+  box.add(b_search)
 
-  var b_mirror = newButton("Profil spiegeln")
-  p.add(b_mirror)
-  
-  
+
   window.onKeyDown = proc(event: KeyboardEvent) =
     if event.key == Key_Plus:
       ctrl.trafo = ctrl.trafo*scale(vec2(1.1, 1.1))
@@ -88,6 +94,7 @@ when isMainModule:
   model.alpha = 90
   model.l = 100
   model.set_sliders()
+  model.fill = true
   ctrl.figures.add(model)
 
   b_set.onClick = proc(event: ClickEvent) =
@@ -125,11 +132,15 @@ when isMainModule:
       ctrl.forceRedraw()
       echo "Best: ", best_name, " ", best_penalty
 
-  b_mirror.onClick = proc(event: ClickEvent) =
+  cb_fill.onToggle = proc(event: ToggleEvent) =
+    model.fill = not model.fill
+    ctrl.forceRedraw
+  cb_fill.checked = model.fill
+    
+  cb_mirror.onToggle = proc(event: ToggleEvent) =
     model.mirror = not model.mirror
     echo "setze mirror auf ", model.mirror
     ctrl.forceRedraw
-    
     
   proc on_combo(event: ComboBoxChangeEvent) =
     var path = ComboBox(event.control).value
