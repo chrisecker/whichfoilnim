@@ -2,6 +2,7 @@ import canvas
 import foilmodel1
 import airfoil
 import foilbrowser
+import matchbrowser
 import listctrl
 import nigui
 import pixie
@@ -15,6 +16,7 @@ when isMainModule:
 
   app.init()
 
+  var airfoils = loadAirfoils("foils/")
   var window = newWindow()
 
   var p = newLayoutContainer(Layout_Horizontal)
@@ -89,7 +91,7 @@ when isMainModule:
   ctrl.figures.add(model)
 
   b_choose.onClick = proc(event: ClickEvent) =
-    var browser = newFoilBrowser("foils/")
+    var browser = newFoilBrowser("foils/") # XXX argument should be list of airfoils
     browser.listCtrl.onItemActivate = proc(control: ListCtrlBase, index: int) =
       model.airfoil = browser.listCtrl.items[index]
       ctrl.forceRedraw
@@ -100,35 +102,30 @@ when isMainModule:
     ctrl.forceRedraw
 
   b_search.onClick = proc(event: ClickEvent) =
-      var testfoil: Airfoil
-      var best: Airfoil
-      var best_penalty = -1.0
-      var best_name: string
-      var b: float
-      var i = -1
-      for d in walkDir("foils", relative=false):
-        i += 1
-        if d.kind == pcFile and d.path.toLowerAscii.endsWith(".dat"):
-          #toLower.endswith(".dat"):
-          try:
-            testfoil = load_airfoil($d.path)
-          except:
-            echo "Kann nicht geladen werden", i, " ", d.path
-            continue
+    var matches: seq[(AirFoil, float)]
+    var testfoil: Airfoil
+    
+    var b: float
+    for foil in airfoils:
+      try:
+        b = model.badness(foil)
+      except:
+        echo "Kann nicht berechnet werden", foil.path
+        continue
 
-          try:
-            b = model.badness(testfoil)
-          except:
-            echo "Kann nicht berechnet werden", i, " ", d.path
-            continue
-            
-          if best_penalty<0 or b<best_penalty:
-            best_penalty = b
-            best_name = $d.path
-            best = testfoil
-      model.airfoil = best
-      ctrl.forceRedraw()
-      echo "Best: ", best_name, " ", best_penalty
+      matches.add((foil, b))
+
+    proc myCmp(x, y: (AirFoil, float)): int =
+      cmp(x[1], y[1])      
+    matches.sort(myCmp)
+
+    var browser = newMatchBrowser(matches)
+    browser.listCtrl.onItemActivate = proc(control: ListCtrlBase, index: int) =
+      model.airfoil = browser.listCtrl.items[index][0]
+      ctrl.forceRedraw
+    
+    browser.window.show()
+    
 
   cb_fill.onToggle = proc(event: ToggleEvent) =
     model.fill = not model.fill
