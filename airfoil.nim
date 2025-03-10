@@ -1,6 +1,5 @@
 import std/strutils
 import std/strformat
-import std/enumerate
 import std/algorithm
 import std/os
 import vmath
@@ -18,6 +17,8 @@ type
     doc*: string
     points*: seq[Vec2]
     nupper*: int
+    path*: string
+    
 
 func parse_coord(l: string): (float, float) =
   let s = l.strip().splitWhitespace()
@@ -94,7 +95,7 @@ proc load_airfoil*(path: string): Airfoil =
       nupper += 1
       ap = p    
   close(f)      
-  return Airfoil(doc: doc, points: points, nupper: nupper)
+  return Airfoil(doc: doc, points: points, nupper: nupper, path: path)
 
 proc loadAirfoils*(path: string): seq[AirFoil] =
   # scan path (and sub paths) for airfoils and read them
@@ -109,6 +110,10 @@ proc loadAirfoils*(path: string): seq[AirFoil] =
         echo "Kann nicht geladen werden", d.path
         continue
       r.add(foil)
+
+  proc myCmp(x, y: AirFoil): int =
+    cmp(x.path, y.path)      
+  r.sort(myCmp)
   return r
   
 func upper_points*(foil: Airfoil): seq[Vec2] =

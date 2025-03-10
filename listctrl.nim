@@ -11,7 +11,7 @@ type
     fCursor: int
     onItemActivate*: ActivateProc
     onCursorMove*: CursorProc
-    dy: int # height per item
+    dy*: int # height per item
     lastRelease: float # time of last mouse button release
     buttonDown: bool # is left mouse button down or not?
 

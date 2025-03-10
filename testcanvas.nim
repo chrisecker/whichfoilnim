@@ -1,6 +1,8 @@
 import canvas
 import foilmodel1
 import airfoil
+import foillist
+import listctrl
 import nigui
 import pixie
 import std/os
@@ -40,20 +42,9 @@ when isMainModule:
     let fn = commandLineParams()[0]
     ctrl.bgimage = readImage(fn)
 
-  # gtk_combo_box_text_new_with_entry
-  var b = newComboBox()
-  var options: seq[string] = @[]
-
-  var i = -1
-  for d in walkDir("foils", relative=false):
-    i += 1
-    if d.kind == pcFile:
-      options.add(d.path)
-  options.sort(system.cmp)
-  
-  b.options = options
-  box.add(b)
-
+  var b_choose = newButton("Profil auswählen")
+  box.add(b_choose)
+    
   var cb_mirror = newCheckbox("Profil spiegeln")
   box.add(cb_mirror)
 
@@ -97,6 +88,13 @@ when isMainModule:
   model.fill = true
   ctrl.figures.add(model)
 
+  b_choose.onClick = proc(event: ClickEvent) =
+    var browser = newFoilBrowser("foils/")
+    browser.listCtrl.onItemActivate = proc(control: ListCtrlBase, index: int) =
+      model.airfoil = browser.listCtrl.items[index]
+      ctrl.forceRedraw
+    browser.window.show()
+  
   b_set.onClick = proc(event: ClickEvent) =
     model.set_sliders()
     ctrl.forceRedraw
@@ -146,11 +144,7 @@ when isMainModule:
     var path = ComboBox(event.control).value
     model.airfoil = load_airfoil(path)
     ctrl.forceRedraw
-  b.onChange = on_combo
 
-
-
-  echo "Benutze +, -, left, right, up, down"
 
   window.show()
   app.run()
