@@ -1,7 +1,7 @@
 import canvas
 import foilmodel1
 import airfoil
-import foillist
+import foilbrowser
 import listctrl
 import nigui
 import pixie
@@ -140,11 +140,5 @@ when isMainModule:
     echo "setze mirror auf ", model.mirror
     ctrl.forceRedraw
     
-  proc on_combo(event: ComboBoxChangeEvent) =
-    var path = ComboBox(event.control).value
-    model.airfoil = load_airfoil(path)
-    ctrl.forceRedraw
-
-
   window.show()
   app.run()
