@@ -2,6 +2,7 @@ import std/strutils
 import std/strformat
 import std/enumerate
 import std/algorithm
+import std/os
 import vmath
 
 
@@ -95,10 +96,23 @@ proc load_airfoil*(path: string): Airfoil =
   close(f)      
   return Airfoil(doc: doc, points: points, nupper: nupper)
 
-
+proc loadAirfoils*(path: string): seq[AirFoil] =
+  # scan path (and sub paths) for airfoils and read them
+  var r: seq[AirFoil]
+  var foil: AirFoil
+  
+  for d in walkDir("foils", relative=false):
+    if d.kind == pcFile and d.path.toLowerAscii.endsWith(".dat"):
+      try:
+        foil = load_airfoil($d.path)
+      except:
+        echo "Kann nicht geladen werden", d.path
+        continue
+      r.add(foil)
+  return r
+  
 func upper_points*(foil: Airfoil): seq[Vec2] =
   foil.points[0..foil.nupper-1]
-
   
 func lower_points*(foil: Airfoil): seq[Vec2] =
   foil.points[foil.nupper..^1]
@@ -252,3 +266,6 @@ when isMainModule:
       echo $p
       check(0.007 < p.x and p.x < 0.009)
       check(0.013 < p.y and p.y < 0.014)
+    test "loadAirfoils":
+        let foils = loadAirfoils("foils/")
+        echo "Airfoils found: ", foils.len
