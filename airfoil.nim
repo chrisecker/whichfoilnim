@@ -166,8 +166,6 @@ proc interpolate_airfoil*(t: float, foil: Airfoil): (float, float) =
   
   ap = points[0]
   if t<ap.x or t>points[^1].x:
-    #for p in points:
-    #  echo p
     raise newException(ValueError, fmt"B{t} not in interval {ap.x}..{points[^1].x}. ")
   for p in points[1..^1]:
     if (ap.x<t and t<=p.x): 

@@ -25,6 +25,11 @@ proc newFoilModel1*(path: string): FoilModel1 =
   result.positions = @[0.1, 0.3, 0.5, 0.7]
   result.upper_values = @[0.01, 0.01, 0.01, 0.01]
   result.lower_values = @[-0.01, -0.01, -0.01, -0.01]
+  result.pa = vec2(0, 0)
+  result.pb = vec2(1, 0)
+  result.alpha = 90
+  result.l = 0.5
+
   #result.positions = @[0.1, 0.3]
   #result.upper_values = @[0.01, 0.01]
   #result.lower_values = @[-0.01, -0.01]
@@ -39,14 +44,15 @@ proc pt*(figure: FoilModel1): Vec2 =
   return r*ab.normalize*figure.l+figure.pa
 
 proc compute_f2c*(figure: FoilModel1, airfoil: Airfoil): Mat3 =
-  # berechnet foil->canvas
+  # Berechnet foil->canvas.
+  # Achtung: figure.airfoil wird nicht benutzt!
   let pa = figure.pa
   let pb = figure.pb
   let pt = figure.pt
 
   let alpha = figure.alpha*PI/180.0
-  let pa0 = find_tangent(figure.airfoil, alpha)
-  let pb0 = figure.airfoil.points[0] # trailing edge, upper
+  let pa0 = find_tangent(airfoil, alpha)
+  let pb0 = airfoil.points[0] # trailing edge, upper
 
   # jetzt müssen wir eine Trafo finden mit der pa0 auf pa und pb0 auf
   # pb abgebildet wird.
@@ -281,28 +287,31 @@ method badness*(figure: FoilModel1, airfoil: Airfoil): float =
   return dist
 
 
+proc badness_debug*(model: FoilModel1, airfoil: Airfoil): float =
+  result = model.badness(airfoil)
+  echo "Badness of ", model.airfoil.path, " against ", airfoil.path, ":", result
+  echo "  positions=", model.positions
+  echo "  upper_values=", model.upper_values
+  echo "  lower_values=", model.lower_values
+  echo "  pa=", model.pa
+  echo "  pb=", model.pb
+  echo "  alpha=", model.alpha
+
+  
 when isMainModule:
   import unittest
   import std/os
   
   suite "testing foilmodel1.nim":
-    var foil = newFoilModel1("devel/fx61168-il.dat")
-    foil.pa = vec2(100, 400)
-    foil.pb = vec2(500, 400)
-    foil.alpha = 90
-
-    # Exakte gematchte Werte
-    foil.upper_values = @[0.1121102049946785, 0.10481564700603485, 0.06984496116638184]
-    foil.lower_values = @[-0.05335169658064842, -0.04783700406551361, -0.01655637100338936]
-
-    # Manuelle Werte
-    #foil.upper_values = @[0.1139031946659088, 0.1058920323848724, 0.06800532341003418]      
-    #foil.lower_values = @[-0.05836701393127441, -0.05029535293579102, -0.01220706105232239]
+    var model = newFoilModel1("foils/fx61168-il.dat")
+    model.pa = vec2(100, 400)
+    model.pb = vec2(500, 400)
+    model.alpha = 90
     
     test "match_sliders":
-      let fx61168 = load_airfoil("devel/fx61168-il.dat")
-      discard foil.match_sliders(fx61168)
-      discard foil.badness(fx61168)
+      let fx61168 = load_airfoil("foils/fx61168-il.dat")
+      discard model.match_sliders(fx61168)
+      discard model.badness(fx61168)
 
     test "ag24":
       let f = load_airfoil("foils/ag24-il.dat")
@@ -310,6 +319,31 @@ when isMainModule:
       let f = load_airfoil("foils/s2060-il.dat")
     test "oaf095":
       let f = load_airfoil("foils/oaf095-il.dat")
+    test "badness":
+      var model2 = newFoilModel1("foils/fx61168-il.dat")
+      model.set_sliders()
+      model2.set_sliders()
+
+      let f = load_airfoil("foils/sg6040-il.dat")
+      
+      discard model.badness_debug(f)
+      
+      #assert model2.badness(model2.airfoil) == 0      
+      #assert model2.badness(f) == model.badness(f)
+
+      model2.airfoil = f
+      var m1 = compute_m2c(model).inverse*compute_f2c(model, f) # foil -> model
+      echo $m1
+      var m2 = compute_m2c(model2).inverse*compute_f2c(model2, f) # foil -> model
+      echo $m2
+      assert m1 == m2
+      # Foil -> Modell sollte eigentlich nur vom Modell abhängen,
+      # nicht von den beiden foils!
+      
+      assert model2.badness(f) == model.badness(f)
+      
+
+      
     test "allfoils":      
       var testfoil: Airfoil
 
@@ -326,8 +360,7 @@ when isMainModule:
                continue
             raise
           try:
-            let b = foil.badness(testfoil)
+            let b = model.badness(testfoil)
           except:
             echo "Kann nicht berechnet werden", i, " ", d.path
             continue
-          echo b, ": ",  $d.path 

@@ -18,3 +18,5 @@ method set_sliders*(figure: FoilModel) {.base.} =
 
 method badness*(figure: FoilModel, airfoil: Airfoil): float {.base.} =
   99
+
+

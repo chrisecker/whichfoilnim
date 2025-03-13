@@ -119,6 +119,14 @@ when isMainModule:
       cmp(x[1], y[1])      
     matches.sort(myCmp)
 
+    echo "Matches:"
+    for i, (foil, b) in matches:
+      let b2 = model.badness(foil)
+      echo i, " ", round(b*100, 3), " ", foil.path, " ", b2
+      if i>5:
+        break
+
+
     var browser = newMatchBrowser(matches)
     browser.listCtrl.onItemActivate = proc(control: ListCtrlBase, index: int) =
       model.airfoil = browser.listCtrl.items[index][0]
@@ -136,6 +144,12 @@ when isMainModule:
     model.mirror = not model.mirror
     echo "setze mirror auf ", model.mirror
     ctrl.forceRedraw
+
+  var b_badness = newButton("Profil bewerten")
+  box.add(b_badness)
+  b_badness.onClick = proc(event: ClickEvent) =
+    let b= badness_debug(model, model.airfoil)
+    
     
   window.show()
   app.run()
