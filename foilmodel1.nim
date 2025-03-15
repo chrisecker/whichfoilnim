@@ -279,11 +279,14 @@ method badness*(figure: FoilModel1, airfoil: Airfoil): float =
   var dist = 0.0
   for i, upper in upper_values:
     let lower = lower_values[i]
-    let c1 = 0.5*(upper+lower)
-    let c2 = 0.5*(figure.upper_values[i]+figure.lower_values[i])    
-    let h1 = upper-lower
-    let h2 = figure.upper_values[i]-figure.lower_values[i]
-    dist += (h1-h2)^2+(c1-c2)^2
+    if false:
+      let c1 = 0.5*(upper+lower)
+      let c2 = 0.5*(figure.upper_values[i]+figure.lower_values[i])    
+      let h1 = upper-lower
+      let h2 = figure.upper_values[i]-figure.lower_values[i]
+      dist += (h1-h2)^2+(c1-c2)^2
+    else:
+      dist += (upper-figure.upper_values[i])^2+(lower-figure.lower_values[i])^2      
   return dist
 
 

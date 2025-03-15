@@ -93,6 +93,7 @@ method handleKeyDownEvent(control: ListCtrlBase, event: KeyboardEvent) =
     let callback = control.onItemActivate
     if callback != nil:
       callback(control, control.cursor)
+  event.handled = true
 
 method itemsInserted*(control: ListCtrlBase, i, n: int) =
   if control.len == n:

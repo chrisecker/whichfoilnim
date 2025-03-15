@@ -25,6 +25,7 @@ when isMainModule:
   p.heightMode = HeightMode_Expand
 
   var ctrl = newCanvasCtrl()
+  ctrl.fixedCurrent = true
   ctrl.trafo = mat3(
       0.5, 0.0, 0.0,
       0.0, 0.5, 0.0,
@@ -44,6 +45,9 @@ when isMainModule:
     let fn = commandLineParams()[0]
     ctrl.bgimage = readImage(fn)
 
+  var l_airfoil = newLabel("xxxx")
+  box.add(l_airfoil)
+  
   var b_choose = newButton("Profil auswählen")
   box.add(b_choose)
     
@@ -89,11 +93,24 @@ when isMainModule:
   model.set_sliders()
   model.fill = true
   ctrl.figures.add(model)
+  
+  #ctrl.onCurrentChanged = proc(ctrl: Canvas) =
+  #  discard # echo "current changed"
+
+  
+  ctrl.onCurrentChanged = proc(control: CanvasCtrl) =
+    echo "current"
+    let current = control.current
+    if current != nil:
+      l_airfoil.text = FoilModel1(current).airfoil.path      
+  ctrl.current = model
+
 
   b_choose.onClick = proc(event: ClickEvent) =
     var browser = newFoilBrowser("foils/") # XXX argument should be list of airfoils
     browser.listCtrl.onItemActivate = proc(control: ListCtrlBase, index: int) =
       model.airfoil = browser.listCtrl.items[index]
+      l_airfoil.text = model.airfoil.path            
       ctrl.forceRedraw
     browser.window.show()
   
@@ -130,6 +147,7 @@ when isMainModule:
     var browser = newMatchBrowser(matches)
     browser.listCtrl.onItemActivate = proc(control: ListCtrlBase, index: int) =
       model.airfoil = browser.listCtrl.items[index][0]
+      l_airfoil.text = model.airfoil.path            
       ctrl.forceRedraw
     
     browser.window.show()

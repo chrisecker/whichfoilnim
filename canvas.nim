@@ -29,10 +29,12 @@ type SimpleHandle* = ref object of Handle
   label*: string
   
 method draw*(handle: SimpleHandle, ctx: Context, trafo: Mat3) =
+  ctx.lineWidth = 1
   ctx.strokeStyle = rgba(0, 0, 0, 255)  
   ctx.strokeCircle(circle(trafo*handle.position, 10.0))
 
 method draw_dragged*(handle: SimpleHandle, ctx: Context, trafo: Mat3) =
+  ctx.lineWidth = 1
   ctx.strokeStyle = rgba(255, 0, 0, 255)  
   ctx.strokeCircle(circle(trafo*handle.position, 12.0))
   let dx = vec2(0, 4)
@@ -65,6 +67,7 @@ method draw_dragged*(handle: SmallHandle, ctx: Context, trafo: Mat3) =
   let r = 4.0
   let (x, y) = toTuple(trafo*handle.position)
   let box = Rect(x:x-r, y:y-r, w:2*r, h:2*r)
+  ctx.lineWidth = 1
   ctx.strokeStyle = rgba(255, 0, 0, 255)
   ctx.strokeRect(box)
   ctx.fontSize = 20
@@ -101,6 +104,7 @@ method draw*(slider: Slider, ctx: Context, trafo: Mat3) =
   ctx.fill(compute_path(slider, trafo))
 
 method draw_dragged*(slider: Slider, ctx: Context, trafo: Mat3) =
+  ctx.lineWidth = 1
   ctx.strokeStyle = rgba(255, 0, 0, 255)
   ctx.stroke(compute_path(slider, trafo))
   ctx.fontSize = 20
@@ -136,19 +140,38 @@ method hit*(figure: Figure, position: Vec2, trafo: Mat3): bool {.base.} =
   false
   
 
+  
 
 
-type CanvasCtrl* = ref object of ControlImpl
-  current*: Figure
-  figures*: seq[Figure]
-  drag_start: Vec2
-  drag_handle: Handle
-  trafo*: Mat3 # canvas 2 screen
-  bgimage*: pixie.Image
-  cash_hash : Hash
-  cash_image : pixie.Image
+type
+  CanvasCtrl* = ref object of ControlImpl
+    figures*: seq[Figure]
+    trafo*: Mat3 # canvas to screen
+    bgimage*: pixie.Image
+    fixedCurrent*: bool
+    onCurrentChanged*: CanvasCallback
+    fCurrent: Figure
+    drag_start: Vec2
+    drag_handle: Handle
+    cash_hash : Hash
+    cash_image : pixie.Image
+    
+  CanvasCallback* = proc(canvas: CanvasCtrl)
 
+  
+func current*(ctrl: CanvasCtrl): Figure =
+  ctrl.fCurrent
+  
+proc `current=`*(ctrl: CanvasCtrl, new: Figure) =
+    
+  if ctrl.fCurrent == new:
+    return
+  ctrl.fCurrent = new
+  let callback = ctrl.onCurrentChanged
+  if callback != nil:
+    callback(ctrl)
 
+  
 proc hash(trafo: Mat3): Hash = 
   var h: Hash = 0
   for i in 0..2:
@@ -228,6 +251,10 @@ proc handleClick(ctrl: CanvasCtrl, p: Vec2) =
         ctrl.drag_handle = handle
         ctrl.forceRedraw
         found = true
+
+  if ctrl.fixedCurrent:
+    return
+    
   if not found:
     for figure in ctrl.figures:
       if figure.hit(p, ctrl.trafo):
@@ -346,8 +373,7 @@ when isMainModule:
     if y2<y1:
       dy = -1.0
     result.add(SmallHandle(position:vec2(x1+dx*r, y1), idx:2))
-    #result.add(SmallHandle(position:vec2(x1, y1+dy*r), idx:3))
-    result.add(Slider(position:vec2(x1, y1+dy*r), direction:figure.p2-figure.p1, idx:3)) # XXX
+    result.add(SmallHandle(position:vec2(x1, y1+dy*r), idx:3))    
 
   method move_handle(figure: RectFigure, handleidx: int, pos: Vec2, trafo: Mat3) =
     let p = trafo.inverse*pos
@@ -427,9 +453,9 @@ when isMainModule:
     )
 
 
-  var square = RectFigure(p1:vec2(10, 10), p2:vec2(200, 200), r:20)
+  var square = RectFigure(p1:vec2(30, 30), p2:vec2(230, 230), r:20)
   c.figures.add(square)
-  var circle = CircleFigure(pc:vec2(200, 200), pr:vec2(0, 100))
+  var circle = CircleFigure(pc:vec2(200, 200), pr:vec2(0, 120))
   c.figures.add(circle)
 
   c.widthMode = WidthMode_Fill

@@ -3,6 +3,7 @@ import std/strformat
 import std/algorithm
 import std/os
 import vmath
+import pixie
 
 
 const eps = 1.0e-7 ## Epsilon used for float comparisons.
@@ -142,7 +143,7 @@ func interpolate[T](x, x1, x2 : float, y1, y2: T): T =
   let f = (x-x1)/(x2-x1)
   return y1+(y2-y1)*f  
 
-proc interpolate_airfoil*(t: float, foil: Airfoil): (float, float) =
+proc interpolate_airfoil*(foil: Airfoil, t: float): (float, float) =
   # Determines the intersection of the profile coordinates with x=t
   #
   # Returns a tuple (upper, lower).
@@ -222,12 +223,42 @@ proc find_tangent*(foil: Airfoil, alpha: float): Vec2 =
   #echo "Nicht gefunden"
   return q # XXX Besser: Exception?
 
+
+
+proc compute_camberline*(foil: Airfoil): seq[Vec2] =
+  # compute the camber line from the airfoils
+  result = @[]
+  # this is a very bad method:
+  for p in foil.points[0..foil.nupper-2]:
+    let t = p.x
+    let (y1, y2) = interpolate_airfoil(foil, t)
+    result.add(vec2(t, 0.5*(y1+y2)))
+
   
+proc compute_path*(foil: Airfoil, trafo: Mat3): Path =
+  # compute a pixie path from the airfoil shape
+  result = newPath()
+  var p = foil.points[0]
+  result.moveTo(trafo*vec2(p.x, p.y)) 
+  for p in foil.points[1..^1]:
+    result.lineTo(trafo*vec2(p.x, p.y)) 
+  result.closePath()
+
+
+proc compute_camberpath*(foil: Airfoil, trafo: Mat3): Path =
+  # compute a pixie path from the airfoils camber line
+  result = newPath()
+
+  let points = foil.compute_camberline()
+  var p = points[0]
+  result.moveTo(trafo*p) 
+  for p in points[1..^1 ]:
+    result.lineTo(trafo*p) 
+
+
   
 when isMainModule:
   import unittest
-
-
 
   suite "testing airfoil.nim":
     test "parse_coord":
@@ -250,7 +281,7 @@ when isMainModule:
     test "ag03":
       let f = load_airfoil("foils/ag03-il.dat")
       check(len(f.points) == 180)
-      let (y1, y2) = interpolate_airfoil(0.1, f)
+      let (y1, y2) = interpolate_airfoil(f, 0.1)
       check(y1 =~ -0.0131572867921)
       check(y2 =~ 0.0406201664946)
     test "ag24":
