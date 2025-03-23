@@ -245,7 +245,20 @@ proc compute_camberline*(foil: Airfoil): seq[Vec2] =
     let (y1, y2) = interpolate_airfoil(foil, t)
     result.add(vec2(t, 0.5*(y1+y2)))
 
-  
+    
+proc find_maxcamber*(foil: Airfoil): float =
+  # Find the x-coordinate of the max. camber. Very bad algorithm.
+  var max_c = -1000.0
+  var max_x = -1.0
+  for p in foil.points[0..foil.nupper-2]:
+    let (y1, y2) = interpolate_airfoil(foil, p.x)
+    let c = 0.5*(y1+y2)
+    if c > max_c:
+      max_c = c
+      max_x = p.x
+  return max_x
+    
+
 proc compute_path*(foil: Airfoil, trafo: Mat3): Path =
   # compute a pixie path from the airfoil shape
   result = newPath()
@@ -321,6 +334,15 @@ when isMainModule:
       # Max thickness 11.7% at 28% chord.
       check(t =~ 0.28)
       check(round(u-l, 3) =~ 0.117)
+    test "find_maxcamber":
+      let f = load_airfoil("foils/clarky-il.dat")
+      let t = find_maxcamber(f)
+      let (l, u) = interpolate_airfoil(f, t)
+      let c = 0.5*(l+u)
+      # http://airfoiltools.com/airfoil/details?airfoil=clarky-il
+      # Max camber 3.4% at 42% chord
+      check(round(t, 2) =~ 0.42)
+      check(round(c, 3) =~ 0.034)
     test "loadAirfoils":
         let foils = loadAirfoils("foils/")
         echo "Airfoils found: ", foils.len
