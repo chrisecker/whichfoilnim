@@ -22,13 +22,13 @@ type FoilModel1* = ref object of FoilModel
   
 proc newFoilModel1*(): FoilModel1 =
   result = new FoilModel1
-  result.positions = @[0.1, 0.3, 0.5, 0.7]
-  result.upper_values = @[0.01, 0.01, 0.01, 0.01]
-  result.lower_values = @[-0.01, -0.01, -0.01, -0.01]
+  result.positions = @[0.05, 0.1, 0.3, 0.5, 0.7]
+  result.upper_values = @[0.01, 0.01, 0.01, 0.01, 0.01]
+  result.lower_values = @[-0.01, -0.01, -0.01, -0.01, -0.01]
   result.pa = vec2(0, 0)
   result.pb = vec2(1, 0)
   result.alpha = 90
-  result.l = 0.5
+  result.l = 0.3
 
   
 proc newFoilModel1*(path: string): FoilModel1 =
@@ -139,7 +139,8 @@ method get_handles*(figure: FoilModel1): seq[Handle] =
   # center sliders
   for pos in figure.positions:
     let c = m2c*vec2(pos, 0)    
-    result.add(SmallHandle(position:c, idx:idx))
+    let label = (pos*100).formatFloat(ffDecimal, 1) 
+    result.add(SmallHandle(position:c, idx:idx, label:label))
     idx += 1
     
     
@@ -230,7 +231,7 @@ method hit*(figure: FoilModel1, position: Vec2, trafo: Mat3): bool =
   overlaps(p, Polygon(figure.airfoil.points))
 
 
-method match_sliders*(figure: FoilModel1, airfoil: Airfoil): (seq[float], seq[float]) =
+proc match_sliders*(figure: FoilModel1, airfoil: Airfoil): (seq[float], seq[float]) =
   # Sucht die Werte (upper, lower), die airfoil bei gegebenem t am besten beschreiben
   let m = compute_m2c(figure).inverse*compute_f2c(figure, airfoil) # foil -> model
   let foil = airfoil.transformed(m)
