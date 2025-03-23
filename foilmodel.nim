@@ -11,9 +11,6 @@ type FoilModel* = ref object of Figure
   fill*: bool
 
 
-method match_sliders*(figure: FoilModel, airfoil: Airfoil): (seq[float], seq[float]) {.base.} =
-  return (@[], @[])
-  
 method set_sliders*(figure: FoilModel) {.base.} =
   discard
 

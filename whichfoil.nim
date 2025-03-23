@@ -1,6 +1,7 @@
 import canvas
+import foilmodel
 import foilmodel1
-#import foilmodel2
+import foilmodel2
 import airfoil
 import foilbrowser
 import matchbrowser
@@ -84,14 +85,12 @@ when isMainModule:
       app.quit()    
     ctrl.forceRedraw
 
-    
-  var model = newFoilModel1()
-  model.airfoil = load_airfoil("devel/fx61168-il.dat")
 
+  var model = newFoilModel1()
+  #var model = newFoilModel2()
+  model.airfoil = load_airfoil("devel/fx61168-il.dat")
   model.pa = vec2(100, 400)
   model.pb = vec2(500, 400)
-  model.alpha = 90
-  model.l = 0.5
   model.set_sliders()
   model.fill = true
   ctrl.figures.add(model)
@@ -101,10 +100,9 @@ when isMainModule:
 
   
   ctrl.onCurrentChanged = proc(control: CanvasCtrl) =
-    echo "current"
     let current = control.current
     if current != nil:
-      l_airfoil.text = FoilModel1(current).airfoil.path      
+      l_airfoil.text = FoilModel(current).airfoil.path      
   ctrl.current = model
 
 
@@ -162,7 +160,6 @@ when isMainModule:
     
   cb_mirror.onToggle = proc(event: ToggleEvent) =
     model.mirror = not model.mirror
-    echo "setze mirror auf ", model.mirror
     ctrl.forceRedraw
 
   var b_badness = newButton("Profil bewerten")
