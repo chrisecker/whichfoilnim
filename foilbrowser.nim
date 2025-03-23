@@ -88,7 +88,10 @@ proc newFoilBrowser*(path: string): FoilBrowser =
   foilListCtrl.onItemActivate = proc(control: ListCtrlBase, index: int) =
     echo "item selected"
   foilListCtrl.onCursorMove = proc(control: ListCtrlBase, newIndex, oldIndex: int) =
-    textArea.text = foilListCtrl.items[newIndex].doc
+    if len(foilListCtrl.items) == 0:
+      textArea.text = ""
+    else:
+      textArea.text = foilListCtrl.items[newIndex].doc
 
   window.alwaysOnTop = true
 
