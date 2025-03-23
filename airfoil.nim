@@ -238,6 +238,8 @@ proc compute_camberline*(foil: Airfoil): seq[Vec2] =
 proc compute_path*(foil: Airfoil, trafo: Mat3): Path =
   # compute a pixie path from the airfoil shape
   result = newPath()
+  if len(foil.points) == 0:
+    return result
   var p = foil.points[0]
   result.moveTo(trafo*vec2(p.x, p.y)) 
   for p in foil.points[1..^1]:

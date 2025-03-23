@@ -268,14 +268,14 @@ proc handleClick(ctrl: CanvasCtrl, p: Vec2) =
 
 proc zoomIn(ctrl: CanvasCtrl, p: Vec2) =
   let q = ctrl.trafo.inverse()*p
-  let s = scale(vec2(1.1, 1.1))
+  let s = scale(vec2(1.2, 1.2))
   ctrl.trafo = ctrl.trafo*translate(q)*s*translate(-q)
   ctrl.forceRedraw
 
 
 proc zoomOut(ctrl: CanvasCtrl, p: Vec2) =
   let q = ctrl.trafo.inverse()*p
-  let s = scale(vec2(1/1.1, 1/1.1))
+  let s = scale(vec2(1/1.2, 1/1.2))
   ctrl.trafo = ctrl.trafo*translate(q)*s*translate(-q)
   ctrl.forceRedraw
 

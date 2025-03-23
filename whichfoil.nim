@@ -1,5 +1,6 @@
 import canvas
 import foilmodel1
+#import foilmodel2
 import airfoil
 import foilbrowser
 import matchbrowser
@@ -84,12 +85,13 @@ when isMainModule:
     ctrl.forceRedraw
 
     
-  var model = newFoilModel1("devel/fx61168-il.dat")
+  var model = newFoilModel1()
+  model.airfoil = load_airfoil("devel/fx61168-il.dat")
 
   model.pa = vec2(100, 400)
   model.pb = vec2(500, 400)
   model.alpha = 90
-  model.l = 100
+  model.l = 0.5
   model.set_sliders()
   model.fill = true
   ctrl.figures.add(model)

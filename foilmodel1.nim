@@ -12,16 +12,16 @@ import foilmodel
 
   
 type FoilModel1* = ref object of FoilModel
-  pa*, pb*: Vec2
-  alpha*: float # angle of tangent
-  l*: float # length of tangent line
+  pa*, pb*: Vec2 # Points a and b in canvas coordinates
+  alpha*: float  # angle of tangent
+  l*: float      # length of tangent line (model coordinates)
   positions*: seq[float]
   upper_values*: seq[float]
   lower_values*: seq[float]
 
-proc newFoilModel1*(path: string): FoilModel1 =
+  
+proc newFoilModel1*(): FoilModel1 =
   result = new FoilModel1
-  result.airfoil = load_airfoil(path)
   result.positions = @[0.1, 0.3, 0.5, 0.7]
   result.upper_values = @[0.01, 0.01, 0.01, 0.01]
   result.lower_values = @[-0.01, -0.01, -0.01, -0.01]
@@ -30,50 +30,29 @@ proc newFoilModel1*(path: string): FoilModel1 =
   result.alpha = 90
   result.l = 0.5
 
-  #result.positions = @[0.1, 0.3]
-  #result.upper_values = @[0.01, 0.01]
-  #result.lower_values = @[-0.01, -0.01]
+  
+proc newFoilModel1*(path: string): FoilModel1 =
+  result = newFoilmodel1()
+  result.airfoil = load_airfoil(path)
 
-
-proc pt*(figure: FoilModel1): Vec2 =
-  var alpha = float32(figure.alpha*PI/180.0)
-  if figure.mirror:
-    alpha = -alpha
-  var r = rotate(alpha)
-  let ab = figure.pb-figure.pa
-  return r*ab.normalize*figure.l+figure.pa
+const DEG = PI/180.0
+const RAD = 180.0/PI
 
 proc compute_f2c*(figure: FoilModel1, airfoil: Airfoil): Mat3 =
-  # Berechnet foil->canvas.
-  # Achtung: figure.airfoil wird nicht benutzt!
+  # computes foil->canvas.
+  
   let pa = figure.pa
   let pb = figure.pb
-  let pt = figure.pt
 
-  let alpha = figure.alpha*PI/180.0
-  let pa0 = find_tangent(airfoil, alpha)
-  let pb0 = airfoil.points[0] # trailing edge, upper
+  var alpha = figure.alpha*DEG
 
-  # jetzt müssen wir eine Trafo finden mit der pa0 auf pa und pb0 auf
-  # pb abgebildet wird.
+  let h0 = find_tangent(airfoil, alpha)
+  let t0 = airfoil.points[0] # trailing edge, upper
 
-  let d = pb-pa
-  let d0 = pb0-pa0
-  var f = 1.0
   if figure.mirror:
-    f = -1.0
-  
-  let fx = d.length/d0.length
-  let fy = -fx*f
-  var beta = arctan2(d.y, d.x)*f+arctan2(d0.y, d0.x)
-
-  let b = translate(vec2(float(-pa0.x), float(-pa0.y))) # den Punkt pa0 in den Ursprung schieben
-
-  let r = rotate(float32(beta))  # Um beta drehen    
-  let s = scale(vec2(fx, fy)) # Skalieren
-  let t = translate(pa) # pa0 auf pa schieben
-  result = t*s*r*b
-  
+    return compute_trafo(h0, t0, pb, pa)
+  else:
+    return compute_trafo(mirrory*h0, mirrory*t0, pa, pb)*mirrory
 
 proc compute_m2c*(figure: FoilModel1): Mat3 =
   # berechnet model->canvas
@@ -84,16 +63,14 @@ proc compute_m2c*(figure: FoilModel1): Mat3 =
   let pa = figure.pa
   let pb = figure.pb
 
-  let ab = (pb-pa)
-  let l = (pa-pb).length
-  var f = 1.0
+  let h0 = mirrory*vec2(0, 0)
+  let t0 = mirrory*vec2(1, 0)
+
   if figure.mirror:
-    f = -1.0
-  let beta = arctan2(ab.y, ab.x)
-  let r = rotate(float32(f*beta))  # Um beta drehen
-  let s = scale(vec2(l, -f*l)) # Skalieren
-  let t = translate(pa) # (0, 0) auf pa schieben  
-  result = t*s*r
+    return compute_trafo(h0, t0, pb, pa)
+  else:
+    return compute_trafo(mirrory*h0, mirrory*t0, pa, pb)*mirrory
+  
 
 proc draw_modelcs*(figure: FoilModel1, ctx: Context, trafo: Mat3) =
   # for debugging
@@ -120,27 +97,28 @@ proc draw_modelcs*(figure: FoilModel1, ctx: Context, trafo: Mat3) =
     ctx.fillText("B", m*vec2(1, 0))
 
   
+proc pt*(figure: FoilModel1): Vec2 =
+  # Computes pt in model coordinates. Pt is the handle of the tangent
+  # line.
+  let alpha = figure.alpha*DEG
+  let l = figure.l
+  return vec2(cos(alpha), sin(alpha))*l
   
+    
 method get_handles*(figure: FoilModel1): seq[Handle] =
+  # Gibt alle Handles in Canvas-Koordinaten
+  let m2c = compute_m2c(figure)
   let label = figure.alpha.formatFloat(ffDecimal, 1) & "°"
   result = @[]
   result.add(SimpleHandle(position:figure.pa, idx:0))
   result.add(SimpleHandle(position:figure.pb, idx:1))
-  result.add(SmallHandle(position:figure.pt, idx:2, label:label))
+  result.add(SmallHandle(position:m2c*figure.pt, idx:2, label:label))
 
   let v = figure.pa-figure.pb
   let l = v.length
-  var up = vec2(-v.y, v.x)*(1.0/l)
+  var up = vec2(-v.y, v.x)
   var down = up*(-1)
-  if figure.mirror:
-    up = -up
-    down = -down
 
-  #let foil2canvas = compute_f2c(figure, figure.airfoil)
-  #let canvas2foil = foil2canvas.inverse()
-
-  let m2c = compute_m2c(figure)
-  
   var idx = 3
   # upper sliders
   for i, pos in figure.positions:
@@ -174,21 +152,11 @@ method move_handle*(figure: FoilModel1, idx: int, pos: Vec2, trafo: Mat3) =
   elif idx == 1:
     figure.pb = p
   elif idx == 2:
-    figure.l = length(figure.pa-p)
-    let ab = figure.pb-figure.pa
-    let at = p-figure.pa
-    let a1 = arctan2(ab.y, ab.x)
-    let a2 = arctan2(at.y, at.x)
-    var alpha = (a1-a2)*180/PI
-    if figure.mirror:
-      alpha = -alpha
-    if alpha > 180:
-      alpha -= 360
-    elif alpha < -180:
-      alpha += 360
-    alpha= max(0, alpha)
-    alpha = min(90, alpha)
-    figure.alpha = alpha
+    let c2m = compute_m2c(figure).inverse
+    let q = c2m*p
+    figure.l = length(q)
+    let alpha = arctan2(q.y, q.x)*180/PI
+    figure.alpha = min(90, max(0, alpha))
   else:
     let q = compute_m2c(figure).inverse*p
     let n = len(figure.positions)
@@ -231,21 +199,28 @@ method draw*(figure: FoilModel1, ctx: Context, trafo: Mat3) =
     let path = compute_path(figure.airfoil, trafo*m)
     ctx.fill(path)
 
-  draw_modelcs(figure, ctx, trafo) # XXX debug
-  
+  #draw_modelcs(figure, ctx, trafo) # XXX debug
+
+    
 method draw_dragged*(figure: FoilModel1, ctx: Context, trafo: Mat3) =
   figure.draw(ctx, trafo)
   ctx.strokeStyle = rgba(0, 0, 0, 255)
   ctx.lineWidth = 1
 
-  let pt = trafo*figure.pt
-  let pa = trafo*figure.pa
-  let d = pt-pa
-  ctx.strokeSegment(segment(pa-d*0.3, pt))
+  let m2c = compute_m2c(figure)
+  let pt = trafo*m2c*figure.pt
+  var p: Vec2
+  if figure.mirror:
+    p = trafo*figure.pb
+  else:
+    p = trafo*figure.pa
+    
+  let d = pt-p
+  ctx.strokeSegment(segment(p-d*0.3, pt))
 
   let tmp = d.normalize()*20
   let dup = vec2(-tmp.y, tmp.x)
-  ctx.strokeSegment(segment(pa-dup, pa+dup))
+  ctx.strokeSegment(segment(p-dup, p+dup))
   
   
 
@@ -262,7 +237,7 @@ method match_sliders*(figure: FoilModel1, airfoil: Airfoil): (seq[float], seq[fl
   
   var upper_values, lower_values: seq[float]
   for i, pos in figure.positions:
-    let (lower, upper) = interpolate_airfoil(pos, foil)
+    let (lower, upper) = interpolate_airfoil(foil, pos)
     lower_values.add(lower)
     upper_values.add(upper)    
   return (upper_values, lower_values)
