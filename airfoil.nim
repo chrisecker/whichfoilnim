@@ -146,7 +146,7 @@ func interpolate[T](x, x1, x2 : float, y1, y2: T): T =
 proc interpolate_airfoil*(foil: Airfoil, t: float): (float, float) =
   # Determines the intersection of the profile coordinates with x=t
   #
-  # Returns a tuple (upper, lower).
+  # Returns a tuple (lower, upper).
   
   var upper = -1.0
   var lower = -1.0
@@ -224,11 +224,22 @@ proc find_tangent*(foil: Airfoil, alpha: float): Vec2 =
   return q # XXX Besser: Exception?
 
 
-
+proc find_maxthickness*(foil: Airfoil): float =
+  # Find the x-coordinate of the max. thickness. Very bad algorithm.
+  var max_t = -1.0
+  var max_x = -1.0
+  for p in foil.points[0..foil.nupper-2]:
+    let (y1, y2) = interpolate_airfoil(foil, p.x)
+    if y2-y1 > max_t:
+      max_t = y2-y1
+      max_x = p.x
+  return max_x
+  
+  
 proc compute_camberline*(foil: Airfoil): seq[Vec2] =
-  # compute the camber line from the airfoils
-  result = @[]
-  # this is a very bad method:
+  # Compute the camber line from the airfoils. Again: very bad
+  # algorithm.
+  result = @[]  
   for p in foil.points[0..foil.nupper-2]:
     let t = p.x
     let (y1, y2) = interpolate_airfoil(foil, t)
@@ -302,6 +313,14 @@ when isMainModule:
       echo $p
       check(0.007 < p.x and p.x < 0.009)
       check(0.013 < p.y and p.y < 0.014)
+    test "find_maxthickness":
+      let f = load_airfoil("foils/clarky-il.dat")
+      let t = find_maxthickness(f)
+      let (l, u) = interpolate_airfoil(f, t)
+      # http://airfoiltools.com/airfoil/details?airfoil=clarky-il
+      # Max thickness 11.7% at 28% chord.
+      check(t =~ 0.28)
+      check(round(u-l, 3) =~ 0.117)
     test "loadAirfoils":
         let foils = loadAirfoils("foils/")
         echo "Airfoils found: ", foils.len
